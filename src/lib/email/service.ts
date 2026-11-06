@@ -5,7 +5,7 @@ import { isLive } from "@/lib/supabase/env"
 import { WELCOME_CODE } from "@/lib/store"
 import { DEFAULT_TEMPLATES, type TemplateKey } from "./defaults"
 import { renderEmail, type OrderInfo, type ProductLite } from "./render"
-import { emailConfigured, sendBatch, sendEmail, storeAddress, storeUrl, type OutgoingEmail } from "./send"
+import { emailConfigured, maxPerCampaign, provider, sendBatch, sendEmail, storeAddress, storeUrl, type OutgoingEmail } from "./send"
 import type { EmailDoc } from "./types"
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -153,7 +153,7 @@ export async function audienceCounts(): Promise<Record<Audience, number>> {
 
 /** Sends a campaign to its audience, logs every message, and updates the campaign row. */
 export async function deliverCampaign(id: string): Promise<{ ok: true; sent: number; failed: number } | { ok: false; error: string }> {
-  if (!emailConfigured()) return { ok: false, error: "RESEND_API_KEY is not set." }
+  if (!emailConfigured()) return { ok: false, error: provider() === "smtp" ? "GMAIL_USER and GMAIL_APP_PASSWORD are not set." : "RESEND_API_KEY is not set." }
   const db = serviceClient()
   const { data: c } = await db.from("campaigns").select("*").eq("id", id).maybeSingle()
   if (!c) return { ok: false, error: "Campaign not found" }
@@ -162,6 +162,8 @@ export async function deliverCampaign(id: string): Promise<{ ok: true; sent: num
 
   const people = await resolveAudience(c.audience as Audience)
   if (people.length === 0) return { ok: false, error: "No one is in this audience yet." }
+  if (people.length > maxPerCampaign())
+    return { ok: false, error: `Sending through Gmail is limited to ${maxPerCampaign()} recipients per campaign (this audience has ${people.length}). Pick a smaller audience, or switch to Resend with a verified domain.` }
 
   await db.from("campaigns").update({ status: "sending", error: null, updated_at: new Date().toISOString() }).eq("id", id)
   const products = await productsLite()
