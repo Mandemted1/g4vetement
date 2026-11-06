@@ -1,7 +1,7 @@
 import "server-only"
 import store from "@/data/store.json"
 import { META } from "./catalog-meta"
-import { buildAdminData, type AdminData, type CustomerBase, type Order, type OrderStatus, type Product, type Subscriber } from "./data"
+import { buildAdminData, type AdminData, type Category, type CustomerBase, type Order, type OrderStatus, type Product, type Subscriber } from "./data"
 import { getImages } from "./product-images"
 import { anonClient, sessionClient } from "./supabase/clients"
 import { isLive } from "./supabase/env"
@@ -75,7 +75,28 @@ async function fetchAll<T>(page: (from: number, to: number) => PromiseLike<{ dat
   return out
 }
 
+const demoCategories = (products: Product[]): Category[] =>
+  [...new Set(products.map((p) => p.category))].map((name, i) => ({ id: `demo-${i}`, name, description: "", sort: i + 1, active: true }))
+
+const toCategory = (r: any): Category => ({ id: r.id, name: r.name, description: r.description ?? "", sort: r.sort, active: r.active })
+
 /* ---------------- public API ---------------- */
+
+/** Visible category names in the admin's chosen order, for the storefront. Never throws. */
+export async function getCategoryNames(products: Product[]): Promise<string[]> {
+  const derived = [...new Set(products.map((p) => p.category))]
+  if (!isLive) return derived
+  try {
+    const { data, error } = await anonClient().from("categories").select("name, active").order("sort").order("name")
+    if (error || !data?.length) return derived
+    const known = new Set(data.map((c: any) => c.name as string))
+    const visible = data.filter((c: any) => c.active).map((c: any) => c.name as string)
+    // a product whose category isn't managed yet still appears, after the managed ones; a *hidden* category never does
+    return [...visible, ...derived.filter((d) => !known.has(d))]
+  } catch {
+    return derived
+  }
+}
 
 /** Products for the storefront. Never throws: falls back to demo data if the database is unreachable. */
 export async function getCatalog(): Promise<Product[]> {
@@ -100,14 +121,16 @@ export async function getAdminData(): Promise<AdminData> {
       orders: store.orders as Order[],
       customerBase: store.customers as CustomerBase[],
       subscribers: [],
+      categories: demoCategories(demoProducts()),
     })
   }
   const db = await sessionClient()
-  const [products, orders, customers, subs] = await Promise.all([
+  const [products, orders, customers, subs, cats] = await Promise.all([
     fetchAll((a, b) => db.from("products").select("*").order("sort").order("created_at").range(a, b)),
     fetchAll((a, b) => db.from("orders").select("*, order_items(*)").order("created_at").range(a, b)),
     fetchAll((a, b) => db.from("customers").select("*").range(a, b)),
     fetchAll((a, b) => db.from("subscribers").select("*").order("created_at", { ascending: false }).range(a, b)).catch(() => [] as any[]),
+    fetchAll((a, b) => db.from("categories").select("*").order("sort").order("name").range(a, b)).catch(() => [] as any[]),
   ])
   return buildAdminData({
     mode: "live",
@@ -115,5 +138,6 @@ export async function getAdminData(): Promise<AdminData> {
     orders: orders.map(toOrder),
     customerBase: customers.map((c: any): CustomerBase => ({ id: c.id, name: c.name, email: c.email, city: c.city ?? "", state: c.state ?? "" })),
     subscribers: subs.map((s: any): Subscriber => ({ email: s.email, createdAt: s.created_at })),
+    categories: cats.map(toCategory),
   })
 }

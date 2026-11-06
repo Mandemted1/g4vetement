@@ -34,6 +34,9 @@ const products = store.products.map((p, i) => ({
 }))
 await run(`products (${products.length})`, db.from("products").upsert(products))
 
+const catNames = [...new Set(store.products.map((p) => p.category))]
+await run(`categories (${catNames.length})`, db.from("categories").upsert(catNames.map((name, i) => ({ name, sort: i + 1 })), { onConflict: "name", ignoreDuplicates: true }))
+
 const customers = store.customers.map((c) => ({ id: c.id, name: c.name, email: c.email, city: c.city, state: c.state }))
 // only customers who actually ordered (matches the admin's customer list)
 const ordered = new Set(store.orders.map((o) => o.customerId))

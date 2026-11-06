@@ -16,13 +16,16 @@ import { int, money } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export function ProductsView() {
-  const { products, orders } = useAdmin()
+  const { products, orders, categories: managed } = useAdmin()
   const [q, setQ] = useState("")
   const [cat, setCat] = useState("All")
   const [editing, setEditing] = useState<Product | null>(null)
   const [creating, setCreating] = useState(false)
 
-  const cats = useMemo(() => ["All", ...new Set(products.map((p) => p.category))], [products])
+  const cats = useMemo(() => {
+    const names = managed.map((c) => c.name)
+    return ["All", ...names, ...new Set(products.map((p) => p.category).filter((c) => !names.includes(c)))]
+  }, [products, managed])
   const sales = useMemo(() => {
     const m = new Map<string, { units: number; revenue: number }>()
     orders.filter(isBooked).forEach((o) =>

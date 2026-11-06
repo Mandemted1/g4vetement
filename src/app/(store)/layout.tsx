@@ -6,7 +6,7 @@ import { StoreFooter } from "@/components/store/footer"
 import { StoreHeader } from "@/components/store/header"
 import { Tracker } from "@/components/store/tracker"
 import { WelcomePopup } from "@/components/store/welcome-popup"
-import { getCatalog } from "@/lib/source"
+import { getCatalog, getCategoryNames } from "@/lib/source"
 
 // Stock and prices change from the admin, so never serve a stale build.
 export const dynamic = "force-dynamic"
@@ -18,9 +18,10 @@ export const metadata: Metadata = {
 
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
   const products = await getCatalog()
+  const categoryNames = await getCategoryNames(products)
   return (
     <div className="store min-h-dvh">
-      <CatalogProvider products={products}>
+      <CatalogProvider products={products} categoryNames={categoryNames}>
       <CartProvider>
         <Preloader />
         <SmoothScroll />

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useMemo } from "react"
 import type { Product } from "@/lib/data"
-import { categoriesOf, toShop, type ShopProduct } from "@/lib/store"
+import { toShop, type ShopProduct } from "@/lib/store"
 
 interface Ctx {
   shop: ShopProduct[]
@@ -12,11 +12,13 @@ interface Ctx {
 const C = createContext<Ctx | null>(null)
 
 /** Live product catalog for every client component in the storefront. */
-export function CatalogProvider({ products, children }: { products: Product[]; children: React.ReactNode }) {
+export function CatalogProvider({ products, categoryNames, children }: { products: Product[]; categoryNames: string[]; children: React.ReactNode }) {
   const value = useMemo(() => {
     const shop = toShop(products)
-    return { shop, shopById: new Map(shop.map((p) => [p.id, p])), categories: categoriesOf(shop) }
-  }, [products])
+    // the admin-chosen order, but only categories that currently have a visible product
+    const used = new Set(shop.map((p) => p.category))
+    return { shop, shopById: new Map(shop.map((p) => [p.id, p])), categories: categoryNames.filter((n) => used.has(n)) }
+  }, [products, categoryNames])
   return <C.Provider value={value}>{children}</C.Provider>
 }
 

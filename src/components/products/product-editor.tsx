@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { createProduct, updateProduct, type ProductInput } from "@/app/admin/actions"
+import { createCategory } from "@/app/admin/(panel)/category-actions"
 import { SmartImage } from "@/components/smart-image"
 import { uploadImage } from "@/lib/upload"
 import type { GarmentType, Product } from "@/lib/data"
@@ -46,6 +47,8 @@ function Form({ product, categories, onClose }: { product: Product | null; categ
   const [err, setErr] = useState("")
   const [saving, startSave] = useTransition()
   const [uploading, setUploading] = useState(false)
+  const [addCat, setAddCat] = useState(false)
+  const [newCat, setNewCat] = useState("")
   const file = useRef<HTMLInputElement>(null)
   const set = <K extends keyof ProductInput>(k: K, v: ProductInput[K]) => setF((x) => ({ ...x, [k]: v }))
 
@@ -67,8 +70,14 @@ function Form({ product, categories, onClose }: { product: Product | null; categ
 
   const save = () => {
     setErr("")
-    const payload: ProductInput = { ...f, sizes: sizes.split(",").map((s) => s.trim()).filter(Boolean), colors: f.colors.filter((c) => c.name.trim()) }
+    const chosen = addCat ? newCat.trim() : f.category
+    const payload: ProductInput = { ...f, category: chosen, sizes: sizes.split(",").map((s) => s.trim()).filter(Boolean), colors: f.colors.filter((c) => c.name.trim()) }
     startSave(async () => {
+      if (addCat) {
+        if (!chosen) return setErr("Type a name for the new category.")
+        const c = await createCategory(chosen)
+        if (!c.ok && !/already exists/i.test(c.error)) return setErr(c.error)
+      }
       const r = product ? await updateProduct(product.id, payload) : await createProduct(payload)
       if (!r.ok) return setErr(r.error)
       router.refresh()
@@ -106,8 +115,17 @@ function Form({ product, categories, onClose }: { product: Product | null; categ
       <label className={field}>Name<Input value={f.name} onChange={(e) => set("name", e.target.value)} /></label>
       <div className="grid grid-cols-2 gap-3">
         <label className={field}>Category
-          <Input list="cats" value={f.category} onChange={(e) => set("category", e.target.value)} />
-          <datalist id="cats">{categories.map((c) => <option key={c} value={c} />)}</datalist>
+          {addCat ? (
+            <div className="flex gap-2">
+              <Input autoFocus value={newCat} maxLength={40} placeholder="New category name" onChange={(e) => setNewCat(e.target.value)} />
+              <Button type="button" variant="ghost" onClick={() => { setAddCat(false); setNewCat("") }}>Cancel</Button>
+            </div>
+          ) : (
+            <select value={f.category} onChange={(e) => (e.target.value === "__new" ? setAddCat(true) : set("category", e.target.value))} className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm">
+              {[...new Set([...categories, f.category].filter(Boolean))].map((c) => <option key={c} value={c}>{c}</option>)}
+              <option value="__new">+ New category…</option>
+            </select>
+          )}
         </label>
         <label className={field}>Shape (for placeholder)
           <select value={f.type} onChange={(e) => set("type", e.target.value as GarmentType)} className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm">

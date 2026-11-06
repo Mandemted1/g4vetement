@@ -1,7 +1,6 @@
 /** Shared types + pure helpers. Data itself comes from src/lib/source.ts (server) and the providers. */
 
 export type OrderStatus = "pending" | "processing" | "shipped" | "delivered" | "cancelled" | "refunded"
-export type Category = "Tees" | "Hoodies & Sweats" | "Bottoms" | "Outerwear" | "Accessories"
 export type GarmentType = "tee" | "longsleeve" | "hoodie" | "zip" | "sweat" | "jogger" | "cargo" | "straight" | "wide" | "shorts" | "coach" | "bomber" | "puffer" | "beanie" | "cap" | "tote" | "socks"
 
 export interface Product {
@@ -59,6 +58,13 @@ export interface Customer extends CustomerBase {
   lastOrder: string
   tier: "VIP" | "Loyal" | "Returning" | "New"
 }
+export interface Category {
+  id: string
+  name: string
+  description: string
+  sort: number
+  active: boolean
+}
 export interface Subscriber {
   email: string
   createdAt: string
@@ -70,6 +76,7 @@ export interface AdminData {
   orders: Order[]
   customers: Customer[]
   subscribers: Subscriber[]
+  categories: Category[]
   /** Start of the most recent day that has orders, so the dashboard anchors to real activity. */
   today: number
   dataStart: number
@@ -113,7 +120,7 @@ export function buildCustomers(base: CustomerBase[], orders: Order[]): Customer[
     })
 }
 
-export function buildAdminData(input: { mode: AdminData["mode"]; products: Product[]; orders: Order[]; customerBase: CustomerBase[]; subscribers: Subscriber[] }): AdminData {
+export function buildAdminData(input: { mode: AdminData["mode"]; products: Product[]; orders: Order[]; customerBase: CustomerBase[]; subscribers: Subscriber[]; categories: Category[] }): AdminData {
   const orders = [...input.orders].sort((a, b) => a.date.localeCompare(b.date))
   const last = orders[orders.length - 1]
   const first = orders[0]
@@ -123,6 +130,7 @@ export function buildAdminData(input: { mode: AdminData["mode"]; products: Produ
     orders,
     customers: buildCustomers(input.customerBase, orders),
     subscribers: input.subscribers,
+    categories: input.categories,
     today: last ? dayStart(last.date) : dayStart(new Date().toISOString()),
     dataStart: first ? dayStart(first.date) : dayStart(new Date().toISOString()),
   }

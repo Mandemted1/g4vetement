@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ExternalLinkIcon, LayoutDashboardIcon, LogOutIcon, MailIcon, MegaphoneIcon, MailOpenIcon, BarChart3Icon, SettingsIcon, PackageIcon, ShirtIcon, UsersIcon } from "lucide-react"
+import { ExternalLinkIcon, LayoutDashboardIcon, LogOutIcon, MailIcon, MegaphoneIcon, MailOpenIcon, BarChart3Icon, SettingsIcon, TagsIcon, PackageIcon, ShirtIcon, UsersIcon } from "lucide-react"
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail,
@@ -21,6 +21,7 @@ export function AppSidebar() {
     { title: "Dashboard", href: "/admin", icon: LayoutDashboardIcon },
     { title: "Orders", href: "/admin/orders", icon: PackageIcon, badge: openOrders },
     { title: "Products", href: "/admin/products", icon: ShirtIcon, badge: lowStock, warn: true },
+    { title: "Categories", href: "/admin/categories", icon: TagsIcon },
     { title: "Customers", href: "/admin/customers", icon: UsersIcon },
     { title: "View store", href: "/", icon: ExternalLinkIcon, external: true },
   ]
