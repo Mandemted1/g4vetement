@@ -10,6 +10,7 @@ import { isLive } from "@/lib/supabase/env"
 import type { GarmentType, OrderStatus } from "@/lib/data"
 import type { LoginSettings, Policies, StoreSettings } from "@/lib/settings-types"
 import { cleanPolicies, cleanStore } from "@/lib/settings-validate"
+import { cleanTracking, type Tracking } from "@/lib/tracking"
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string }
 const DEMO = { ok: false as const, error: "Demo mode: connect Supabase (see .env.example) to save changes." }
@@ -38,7 +39,7 @@ export async function setOrderStatus(orderId: string, next: OrderStatus): Promis
   if (e1 || !order) return { ok: false, error: e1?.message ?? "Order not found" }
   if (order.status === "cancelled" || order.status === "refunded") return { ok: false, error: `A ${order.status} order can't be changed.` }
 
-  const { error } = await db.from("orders").update({ status: next }).eq("id", orderId)
+  const { error } = await db.from("orders").update({ status: next, ...(next === "shipped" ? { shipped_at: new Date().toISOString() } : {}) }).eq("id", orderId)
   if (error) return msg(error)
 
   if (next === "cancelled") {
@@ -51,6 +52,52 @@ export async function setOrderStatus(orderId: string, next: OrderStatus): Promis
   if (next === "shipped") after(() => sendOrderEmail(orderId, "order_shipped"))
   return { ok: true }
 }
+
+/**
+ * Marks an open order as shipped, saving its tracking number if there is one, and emails the customer.
+ * `tracking` = null ships it without a tracking number.
+ */
+export async function shipOrder(orderId: string, tracking: TrackingInput | null): Promise<Result> {
+  if (!isLive) return DEMO
+  const db = await admin()
+  if (!db) return { ok: false, error: "Please sign in again." }
+  let t: Tracking | null = null
+  if (tracking) {
+    const c = cleanTracking(tracking)
+    if (!c.ok) return c
+    t = c.value
+  }
+  const { data: order } = await db.from("orders").select("status").eq("id", orderId).single()
+  if (!order) return { ok: false, error: "Order not found" }
+  if (order.status !== "pending" && order.status !== "processing") return { ok: false, error: `A ${order.status} order can't be shipped.` }
+  const { error } = await db
+    .from("orders")
+    .update({ status: "shipped", shipped_at: new Date().toISOString(), tracking_carrier: t?.carrier ?? null, tracking_number: t?.number ?? null, tracking_url: t?.url || null })
+    .eq("id", orderId)
+  if (error) return msg(error)
+  refresh()
+  after(() => sendOrderEmail(orderId, "order_shipped"))
+  return { ok: true }
+}
+
+/** Adds or corrects the tracking number on a shipped order. `resend` emails the customer the updated details. */
+export async function saveTracking(orderId: string, tracking: TrackingInput, resend: boolean): Promise<Result> {
+  if (!isLive) return DEMO
+  const db = await admin()
+  if (!db) return { ok: false, error: "Please sign in again." }
+  const c = cleanTracking(tracking)
+  if (!c.ok) return c
+  const { data: order } = await db.from("orders").select("status").eq("id", orderId).single()
+  if (!order) return { ok: false, error: "Order not found" }
+  if (order.status !== "shipped" && order.status !== "delivered") return { ok: false, error: "Tracking can be added once the order has shipped." }
+  const { error } = await db.from("orders").update({ tracking_carrier: c.value.carrier, tracking_number: c.value.number, tracking_url: c.value.url || null }).eq("id", orderId)
+  if (error) return msg(error)
+  refresh()
+  if (resend) after(() => sendOrderEmail(orderId, "order_shipped"))
+  return { ok: true }
+}
+
+export type TrackingInput = { carrier: string; number: string; url?: string }
 
 export interface ProductInput {
   name: string

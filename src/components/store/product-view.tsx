@@ -4,15 +4,18 @@ import { useEffect, useRef, useState } from "react"
 import { track } from "@/lib/track"
 import { AnimatePresence, motion, useAnimationControls } from "motion/react"
 import { isSoldOut, onSale, pad, price, sizeLeft, unitPrice, type ShopProduct } from "@/lib/store"
+import { shippingSummary } from "@/lib/shipping"
 import { BackLink } from "./back-link"
 import { PriceTag } from "./price-tag"
 import { useCart } from "./cart"
+import { useCatalog } from "./catalog"
 import { Magnetic, Rise } from "./fx"
 import { ProductMedia } from "./product-media"
 import { ProductCard } from "./product-card"
 
 export function ProductView({ product: p, related }: { product: ShopProduct; related: ShopProduct[] }) {
   const { add, setOpen } = useCart()
+  const { shipping } = useCatalog()
   const [color, setColor] = useState(p.colors[0])
   const [size, setSize] = useState<string | null>(p.sizes.length === 1 ? p.sizes[0] : null)
   const [added, setAdded] = useState(false)
@@ -109,7 +112,7 @@ export function ProductView({ product: p, related }: { product: ShopProduct; rel
             <div className="mt-10 border-t">
               <Spec title="Fabric" body={p.fabric} />
               <Spec title="Fit" body={p.fit} />
-              <Spec title="Shipping" body="Free shipping over $100. $9 flat rate below. Prices in USD." />
+              <Spec title="Shipping" body={`${shippingSummary(shipping)} Prices in USD.`} />
             </div>
           </div>
         </div>

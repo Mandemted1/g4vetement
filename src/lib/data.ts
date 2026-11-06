@@ -55,6 +55,11 @@ export interface Order {
   status: OrderStatus
   channel: string
   payment: string
+  /** where it ships to and how shipping was priced (orders placed before address collection have none) */
+  ship?: { country: string; address: string; city: string; state: string; postcode: string; method: string; estimate: string } | null
+  /** set when the order was marked shipped with a tracking number */
+  tracking?: { carrier: string; number: string; url: string } | null
+  shippedAt?: string | null
 }
 export interface CustomerBase {
   id: string

@@ -66,6 +66,9 @@ const toOrder = (r: any): Order => ({
   status: r.status as OrderStatus,
   channel: r.channel,
   payment: r.payment,
+  ship: r.ship_country || r.ship_address ? { country: r.ship_country ?? "", address: r.ship_address ?? "", city: r.ship_city ?? "", state: r.ship_state ?? "", postcode: r.ship_postcode ?? "", method: r.ship_method ?? "", estimate: r.ship_estimate ?? "" } : null,
+  tracking: r.tracking_number ? { carrier: r.tracking_carrier ?? "", number: r.tracking_number, url: r.tracking_url ?? "" } : null,
+  shippedAt: r.shipped_at ?? null,
 })
 
 async function fetchAll<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> {

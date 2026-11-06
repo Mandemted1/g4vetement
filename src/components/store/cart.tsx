@@ -3,7 +3,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { AnimatePresence, motion } from "motion/react"
-import { FREE_SHIPPING_AT, onSale, price, sizeLeft, unitPrice } from "@/lib/store"
+import { onSale, price, sizeLeft, unitPrice } from "@/lib/store"
+import { guessCountry } from "@/lib/countries"
+import { quoteShipping, shippableCountries } from "@/lib/shipping"
 import { placeOrder, quoteOrder, type QuoteResult } from "@/app/(store)/actions"
 import { cn } from "@/lib/utils"
 import { useCatalog } from "./catalog"
@@ -155,9 +157,28 @@ function FlightLayer({ flights, done }: { flights: Flight[]; done: (id: number) 
 
 function CartDrawer() {
   const { lines, open, setOpen, setQty, clear, count, showSuccess } = useCart()
-  const { shopById } = useCatalog()
+  const { shopById, shipping } = useCatalog()
   const [step, setStep] = useState<"bag" | "details">("bag")
-  const [form, setForm] = useState({ name: "", email: "", city: "", state: "" })
+  const [form, setForm] = useState({ name: "", email: "", address: "", city: "", state: "", postcode: "" })
+  // where the order is going: remembered between visits, guessed from the browser language the first time
+  const countries = useMemo(() => shippableCountries(shipping), [shipping])
+  const [country, setCountry] = useState("")
+  useEffect(() => {
+    const codes = new Set(countries.map((c) => c.code))
+    let saved = ""
+    try {
+      saved = localStorage.getItem("g4-country") ?? ""
+    } catch {}
+    const guess = guessCountry(typeof navigator === "undefined" ? [] : navigator.languages ?? [])
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCountry((cur) => (cur && codes.has(cur) ? cur : codes.has(saved) ? saved : guess && codes.has(guess) ? guess : (countries[0]?.code ?? "")))
+  }, [countries])
+  const pickCountry = (c: string) => {
+    setCountry(c)
+    try {
+      localStorage.setItem("g4-country", c)
+    } catch {}
+  }
   const [typed, setTyped] = useState("")
   const [applied, setApplied] = useState("")
   const [showCode, setShowCode] = useState(false)
@@ -177,12 +198,12 @@ function CartDrawer() {
 
   // The database prices the bag: sales, code, shipping and total. Re-asked whenever the bag, code or email changes.
   const email = step === "details" ? form.email.trim() : ""
-  const key = JSON.stringify({ l: lines.map((l) => [l.productId, l.size, l.color, l.qty]), c: applied, e: email })
+  const key = JSON.stringify({ l: lines.map((l) => [l.productId, l.size, l.color, l.qty]), c: applied, e: email, k: country })
   useEffect(() => {
     if (!open || lines.length === 0) return
     let alive = true
     const t = window.setTimeout(async () => {
-      const r = await quoteOrder({ email, code: applied || undefined, items: lines.map((l) => ({ productId: l.productId, size: l.size, color: l.color, qty: l.qty })) })
+      const r = await quoteOrder({ email, code: applied || undefined, country: country || undefined, items: lines.map((l) => ({ productId: l.productId, size: l.size, color: l.color, qty: l.qty })) })
       if (alive) setResult({ key, r })
     }, 250)
     return () => {
@@ -199,8 +220,12 @@ function CartDrawer() {
   const localSubtotal = lines.reduce((s, l) => s + l.qty * unitPrice(shopById.get(l.productId) ?? { price: 0 }), 0)
   const subtotalNow = q?.subtotal ?? localSubtotal
   const total = q?.total ?? localSubtotal
-  const toFree = Math.max(0, FREE_SHIPPING_AT - subtotalNow)
-  const freeShip = q ? q.shipping === 0 : subtotalNow >= FREE_SHIPPING_AT
+  // shipping: the database's answer once it arrives; until then the same rules worked out here
+  const localShip = quoteShipping(shipping, country || null, localSubtotal)
+  const ship = q ? { price: q.shipping, freeOver: q.freeOver, estimate: q.shipEstimate, error: q.shipError } : localShip
+  const freeShip = ship.price === 0 && !ship.error
+  const toFree = ship.freeOver === null ? 0 : Math.max(0, ship.freeOver - subtotalNow)
+  const showBanner = !ship.error && (ship.freeOver !== null || ship.price === 0)
 
   useEffect(() => {
     if (!open) return
@@ -237,6 +262,7 @@ function CartDrawer() {
     setError("")
     const r = await placeOrder({
       ...form,
+      country,
       code: applied || undefined,
       items: lines.map((l) => ({ productId: l.productId, size: l.size, color: l.color, qty: l.qty })),
     })
@@ -254,6 +280,8 @@ function CartDrawer() {
       shipping: r.shipping,
       subtotal: r.subtotal,
       email: form.email,
+      estimate: r.estimate,
+      shipTo: [form.name.trim(), form.address.trim(), [form.city.trim(), form.state.trim(), form.postcode.trim()].filter(Boolean).join(", "), countries.find((c) => c.code === country)?.name ?? country].filter(Boolean).join("\n"),
       items: lines.map((l) => {
         const p = shopById.get(l.productId)
         return { productId: l.productId, name: p?.name ?? "Item", color: l.color, colorHex: l.colorHex, size: l.size, qty: l.qty, price: p ? unitPrice(p) : 0 }
@@ -263,14 +291,14 @@ function CartDrawer() {
     setOpen(false)
     window.setTimeout(() => {
       setStep("bag")
-      setForm({ name: "", email: "", city: "", state: "" })
+      setForm({ name: "", email: "", address: "", city: "", state: "", postcode: "" })
       setApplied("")
       setTyped("")
     }, 600)
   }
 
   const input = "w-full border-b bg-transparent py-3 text-[15px] outline-none transition-colors placeholder:text-[var(--mute)] focus:border-[var(--ink)]"
-  const canCheckout = !loading && !bagError && lines.length > 0
+  const canCheckout = !loading && !bagError && !ship.error && lines.length > 0
 
   return (
     <AnimatePresence>
@@ -303,12 +331,14 @@ function CartDrawer() {
               </div>
             ) : (
               <>
-                <div className="border-b px-5 py-3">
-                  <p className="label">{freeShip ? "Free shipping unlocked" : `${price(toFree)} away from free shipping`}</p>
-                  <div className="mt-2 h-px w-full bg-[var(--line)]">
-                    <motion.div className="h-px bg-[var(--ink)]" animate={{ width: `${freeShip ? 100 : Math.min(100, (subtotalNow / FREE_SHIPPING_AT) * 100)}%` }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }} />
+                {showBanner && (
+                  <div className="border-b px-5 py-3">
+                    <p className="label">{freeShip ? (ship.freeOver === null ? "Free shipping" : "Free shipping unlocked") : `${price(toFree)} away from free shipping`}</p>
+                    <div className="mt-2 h-px w-full bg-[var(--line)]">
+                      <motion.div className="h-px bg-[var(--ink)]" animate={{ width: `${freeShip || ship.freeOver === null ? 100 : Math.min(100, (subtotalNow / ship.freeOver) * 100)}%` }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }} />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {step === "bag" ? (
                   <div data-lenis-prevent className="flex-1 overflow-y-auto">
@@ -376,16 +406,24 @@ function CartDrawer() {
                     <p className="label mb-3 text-[var(--mute)]">Your details</p>
                     <input className={input} required placeholder="Full name" autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                     <input className={input} required type="email" placeholder="Email" autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-                    <div className="grid grid-cols-[1fr_5rem] gap-4">
-                      <input className={input} placeholder="City" autoComplete="address-level2" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-                      <input className={input} placeholder="State" autoComplete="address-level1" maxLength={2} value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase() })} />
+                    <p className="label !mt-7 mb-1 text-[var(--mute)]">Delivery address</p>
+                    <input className={input} required placeholder="Address" autoComplete="address-line1" maxLength={200} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+                    <div className="grid grid-cols-2 gap-4">
+                      <input className={input} required placeholder="City" autoComplete="address-level2" maxLength={80} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+                      <input className={input} placeholder="Postcode (if any)" autoComplete="postal-code" maxLength={20} value={form.postcode} onChange={(e) => setForm({ ...form, postcode: e.target.value })} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <input className={input} placeholder="State / region" autoComplete="address-level1" maxLength={80} value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
+                      <select className={cn(input, "cursor-pointer")} required aria-label="Country" autoComplete="country" value={country} onChange={(e) => pickCountry(e.target.value)}>
+                        {countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+                      </select>
                     </div>
                     {applied && (
                       <p className={cn("label !mt-6 leading-relaxed", q?.codeError ? "text-[#b3261e]" : "")}>
                         {q?.codeError ? `${applied}: ${q.codeError}` : q?.code ? `${applied} applied` : `${applied}…`}
                       </p>
                     )}
-                    {(error || bagError) && <p className="label !mt-5 leading-relaxed text-[#b3261e]">{error || bagError}</p>}
+                    {(error || bagError || ship.error) && <p className="label !mt-5 leading-relaxed text-[#b3261e]">{error || bagError || ship.error}</p>}
                   </form>
                 )}
 
@@ -394,7 +432,18 @@ function CartDrawer() {
                     <div className="flex justify-between"><dt>Subtotal</dt><dd>{price(q?.listSubtotal ?? localSubtotal)}</dd></div>
                     {q && q.saleDiscount > 0 && <div className="flex justify-between"><dt>Sale</dt><dd>−{price(q.saleDiscount)}</dd></div>}
                     {q && q.discount > 0 && <div className="flex justify-between"><dt>Discount{q.code ? ` (${q.code})` : ""}</dt><dd>−{price(q.discount)}</dd></div>}
-                    <div className="flex justify-between"><dt>Shipping</dt><dd>{q ? (q.shipping ? price(q.shipping) : "Free") : "–"}</dd></div>
+                    {step === "bag" && countries.length > 0 && (
+                      <div className="flex items-center justify-between gap-4">
+                        <dt><label htmlFor="ship-to">Ship to</label></dt>
+                        <dd className="min-w-0">
+                          <select id="ship-to" value={country} onChange={(e) => pickCountry(e.target.value)} data-cursor="" className="label max-w-full cursor-pointer truncate border-b border-transparent bg-transparent py-0.5 text-right outline-none transition-colors hover:border-[var(--ink)] focus:border-[var(--ink)]">
+                            {countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+                          </select>
+                        </dd>
+                      </div>
+                    )}
+                    <div className="flex justify-between"><dt>Shipping</dt><dd>{ship.error ? "–" : q ? (q.shipping ? price(q.shipping) : "Free") : "–"}</dd></div>
+                    {q && !ship.error && q.shipEstimate && <div className="flex justify-between"><dt>Delivery</dt><dd>{q.shipEstimate}</dd></div>}
                     <div className="flex justify-between pt-1 text-[12px]"><dt>Total</dt><dd>{price(total)}</dd></div>
                   </dl>
                   {step === "bag" ? (
@@ -408,7 +457,7 @@ function CartDrawer() {
                       <span className="relative mix-blend-difference">{busy ? "Placing order…" : `Place order — ${price(total)}`}</span>
                     </button>
                   )}
-                  {bagError && step === "bag" && <p className="label mt-3 leading-relaxed text-[#b3261e]">{bagError}</p>}
+                  {(bagError || ship.error) && step === "bag" && <p className="label mt-3 leading-relaxed text-[#b3261e]">{bagError || ship.error}</p>}
                 </div>
               </>
             )}

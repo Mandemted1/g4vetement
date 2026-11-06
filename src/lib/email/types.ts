@@ -10,6 +10,7 @@ export type Block =
   | { id: string; type: "discount"; code: string; note: string }
   | { id: string; type: "products"; ids: string[] }
   | { id: string; type: "order" }
+  | { id: string; type: "tracking" }
 
 export type BlockType = Block["type"]
 
@@ -32,6 +33,9 @@ export const VARIABLES = [
   { key: "order_id", label: "Order number", sample: "G4-2048" },
   { key: "total", label: "Order total", sample: "$96.00" },
   { key: "discount_code", label: "Discount code", sample: "WELCOME10" },
+  { key: "tracking_number", label: "Tracking number", sample: "1Z999AA10123456784" },
+  { key: "tracking_url", label: "Tracking link", sample: "https://example.com/track" },
+  { key: "carrier", label: "Carrier", sample: "UPS" },
   { key: "store_url", label: "Store link", sample: "https://g4.store" },
 ] as const
 
@@ -45,6 +49,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   discount: "Discount code",
   products: "Products",
   order: "Order summary",
+  tracking: "Tracking",
 }
 
 export const defaultTheme: EmailTheme = { bg: "#ebeae6", card: "#f3f2ef", ink: "#0d0d0d", mute: "#7c7a74" }
@@ -63,5 +68,6 @@ export function newBlock(type: BlockType): Block {
     case "discount": return { id, type, code: "WELCOME10", note: "Use at checkout." }
     case "products": return { id, type, ids: [] }
     case "order": return { id, type }
+    case "tracking": return { id, type }
   }
 }

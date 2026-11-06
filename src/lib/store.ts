@@ -2,8 +2,6 @@ import type { GarmentType, Product } from "./data"
 
 export type { GarmentType }
 
-export const FREE_SHIPPING_AT = 100
-export const SHIPPING = 9
 export const WELCOME_CODE = "WELCOME10"
 export const WELCOME_OFF = 10
 export const WELCOME_MIN = 50

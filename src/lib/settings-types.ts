@@ -45,7 +45,7 @@ export type Policies = Record<PolicySlug, string>
  */
 export const DEFAULT_POLICIES: Policies = {
   shipping: `## Shipping rates
-Orders over $100 ship free. Orders under $100 ship for a flat $9.
+Shipping depends on where your order is going. The current rates are listed below and shown at checkout before you pay.
 
 ## Processing
 We pack orders as quickly as we can. You'll get an email when your order is confirmed and another when it ships.

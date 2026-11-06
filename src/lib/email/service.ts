@@ -4,8 +4,9 @@ import { serviceClient } from "@/lib/supabase/clients"
 import { isLive } from "@/lib/supabase/env"
 import { WELCOME_CODE } from "@/lib/store"
 import { DEFAULT_TEMPLATES, type TemplateKey } from "./defaults"
-import { renderEmail, type OrderInfo, type ProductLite } from "./render"
+import { renderEmail, withTrackingBlock, type OrderInfo, type ProductLite } from "./render"
 import { getWelcomeOffer } from "@/lib/offers"
+import { countryName } from "@/lib/countries"
 import { getAddressLine, getStoreSettings } from "@/lib/settings"
 import { emailConfigured, sendBatch, sendEmail, storeUrl, type OutgoingEmail } from "./send"
 import type { EmailDoc } from "./types"
@@ -52,6 +53,12 @@ async function log(row: { resend_id?: string; campaign_id?: string; kind: string
   }
 }
 
+/** The delivery address as lines for the email: name, street, city/state/postcode, country. Empty for orders placed before addresses were collected. */
+function shipToLines(o: any, name: string): string[] {
+  if (!o.ship_address && !o.ship_city) return []
+  return [name, o.ship_address, [o.ship_city, o.ship_state, o.ship_postcode].filter(Boolean).join(", "), o.ship_country ? countryName(o.ship_country) : ""].map((s: string) => (s ?? "").trim()).filter(Boolean)
+}
+
 /** Order + customer + line items straight from the database. */
 async function loadOrder(orderId: string) {
   const db = serviceClient()
@@ -64,6 +71,9 @@ async function loadOrder(orderId: string) {
     discount: o.discount,
     shipping: o.shipping,
     total: o.total,
+    shipTo: shipToLines(o, o.customers?.name ?? ""),
+    estimate: o.ship_estimate || undefined,
+    tracking: o.tracking_number ? { carrier: o.tracking_carrier ?? "", number: o.tracking_number, url: o.tracking_url ?? "" } : undefined,
   }
   return { id: o.id as string, name: (o.customers?.name ?? "") as string, email: (o.customers?.email ?? "") as string, info }
 }
@@ -77,8 +87,10 @@ export async function sendOrderEmail(orderId: string, key: "order_confirmation" 
     const brand = await brandInfo()
     const o = await loadOrder(orderId)
     if (!o?.email) return { ok: false as const, error: "Order or customer email not found" }
-    const vars = { name: o.name, first_name: firstName(o.name), order_id: o.id, total: `$${o.info.total}`, store_url: storeUrl(), discount_code: WELCOME_CODE }
-    const { html, text } = renderEmail(tpl.doc, { vars, storeUrl: storeUrl(), ...brand, kind: "transactional", order: o.info, products: await productsLite() }, { subject: tpl.subject, preheader: tpl.preheader })
+    const t = o.info.tracking
+    const vars = { name: o.name, first_name: firstName(o.name), order_id: o.id, total: `$${o.info.total}`, store_url: storeUrl(), discount_code: WELCOME_CODE, tracking_number: t?.number ?? "", tracking_url: t?.url ?? "", carrier: t?.carrier ?? "" }
+    const doc = key === "order_shipped" && t ? withTrackingBlock(tpl.doc) : tpl.doc
+    const { html, text } = renderEmail(doc, { vars, storeUrl: storeUrl(), ...brand, kind: "transactional", order: o.info, products: await productsLite() }, { subject: tpl.subject, preheader: tpl.preheader })
     const subject = tpl.subject.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k: string) => (vars as Record<string, string>)[k] ?? "")
     const r = await sendEmail({ to: o.email, subject, html, text })
     await log({ resend_id: r.ok ? r.id : undefined, kind: key, to_email: o.email, status: r.ok ? "sent" : "failed", error: r.ok ? undefined : r.error })
@@ -215,11 +227,13 @@ export async function sendTestEmail(to: string, doc: EmailDoc, subject: string, 
   const sampleOrder: OrderInfo = {
     items: products.slice(0, 2).map((p, i) => ({ name: p.name, color: "Black", size: "M", qty: i + 1, price: p.price, image: p.image })),
     subtotal: 0, discount: 0, shipping: 0, total: 0,
+    shipTo: ["Alex Morgan", "12 Example Street", "Accra, GA", "Ghana"], estimate: "3–7 business days",
+    tracking: { carrier: "UPS", number: "1Z999AA10123456784", url: "https://www.ups.com/track?tracknum=1Z999AA10123456784" },
   }
   sampleOrder.subtotal = sampleOrder.items.reduce((s, l) => s + l.price * l.qty, 0)
   sampleOrder.shipping = sampleOrder.subtotal >= 100 ? 0 : 9
   sampleOrder.total = sampleOrder.subtotal + sampleOrder.shipping
-  const vars = { name: "Alex Morgan", first_name: "Alex", order_id: "G4-0000", total: `$${sampleOrder.total}`, store_url: base, discount_code: WELCOME_CODE }
+  const vars = { name: "Alex Morgan", first_name: "Alex", order_id: "G4-0000", total: `$${sampleOrder.total}`, store_url: base, discount_code: WELCOME_CODE, tracking_number: "1Z999AA10123456784", tracking_url: "https://www.ups.com/track?tracknum=1Z999AA10123456784", carrier: "UPS" }
   const { html, text } = renderEmail(doc, { vars, storeUrl: base, ...(await brandInfo()), kind, unsubscribeUrl: `${base}/unsubscribe/test`, products, order: sampleOrder }, { subject, preheader })
   const r = await sendEmail({ to, subject: `[Test] ${subject.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k: string) => (vars as Record<string, string>)[k] ?? "")}`, html, text })
   await log({ resend_id: r.ok ? r.id : undefined, kind: "test", to_email: to, status: r.ok ? "sent" : "failed", error: r.ok ? undefined : r.error })

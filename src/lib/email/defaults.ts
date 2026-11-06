@@ -19,6 +19,7 @@ const b = {
   text: (text: string) => ({ id: uid(), type: "text" as const, text, align: "left" as const }),
   button: (label: string, url: string) => ({ id: uid(), type: "button" as const, label, url, align: "left" as const, style: "solid" as const }),
   order: () => ({ id: uid(), type: "order" as const }),
+  tracking: () => ({ id: uid(), type: "tracking" as const }),
   spacer: (height = 16) => ({ id: uid(), type: "spacer" as const, height }),
   divider: () => ({ id: uid(), type: "divider" as const }),
 }
@@ -46,6 +47,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, DefaultTemplate> = {
       blocks: [
         b.heading("It's on its way."),
         b.text("Good news, {{first_name}}. Order **{{order_id}}** has shipped."),
+        b.tracking(),
         b.spacer(8),
         b.order(),
         b.button("Keep browsing", "{{store_url}}/shop"),

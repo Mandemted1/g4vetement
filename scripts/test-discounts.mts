@@ -1,6 +1,7 @@
 /**
  * Exercises the pricing engine (sales, codes, shipping, checkout) against your database.   npm run test-discounts
- * Creates throwaway codes/sales/orders and removes them (restoring stock) when done.
+ * Creates throwaway codes/sales/orders and its own test products (zp01…), and removes them all when done.
+ * It never touches your real products, so hiding or editing them doesn't affect it.
  */
 import { createClient } from "@supabase/supabase-js"
 
@@ -12,7 +13,7 @@ const ok = (name: string, cond: boolean, extra = "") => {
 
 type Q = { subtotal: number; list_subtotal: number; sale_discount: number; discount: number; shipping: number; total: number; code: string | null; code_error: string | null; code_note: string | null; free_shipping: boolean; lines: { price: number; list_price: number }[] }
 const line = (id: string, size = "M", color?: string, qty = 1) => ({ product_id: id, size, color: color ?? COLOR[id], qty })
-const COLOR: Record<string, string> = { p01: "Black", p05: "Black", p16: "Black", p09: "Olive" }
+const COLOR: Record<string, string> = { zp01: "Black", zp05: "Black", zp16: "Black", zp09: "Olive" }
 const quote = async (items: object[], code?: string, email = "") => {
   const { data, error } = await db.rpc("quote_order", { p_email: email, p_items: items, p_code: code ?? null })
   if (error) throw new Error(error.message)
@@ -40,38 +41,53 @@ const place = (email: string, items: object[], c?: string) => {
   return db.rpc("place_order", { p_name: "ZZ Test", p_email: email, p_city: "Brooklyn", p_state: "NY", p_items: items, p_code: c ?? null })
 }
 
+// ---------- the test's own products: same prices, categories, sizes and colours the tests were written against ----------
+const TEST_PRODUCTS = [
+  { id: "zp01", name: "ZZ Test Tee", category: "Tees", price: 32, sizes: ["S", "M", "L", "XL"], colors: [{ name: "Black", hex: "#141414" }, { name: "Sand", hex: "#d4c5a3" }], stock: 100 },
+  { id: "zp05", name: "ZZ Test Hoodie", category: "Hoodies & Sweats", price: 78, sizes: ["S", "M", "L", "XL"], colors: [{ name: "Black", hex: "#141414" }], stock: 100 },
+  { id: "zp06", name: "ZZ Test Zip", category: "Hoodies & Sweats", price: 88, sizes: ["S", "M", "L", "XL"], colors: [{ name: "Black", hex: "#141414" }, { name: "Olive", hex: "#5b6140" }], stock: 12 },
+  { id: "zp09", name: "ZZ Test Cargo", category: "Bottoms", price: 84, sizes: ["28", "30", "32", "34", "36"], colors: [{ name: "Olive", hex: "#5b6140" }], stock: 100 },
+  { id: "zp10", name: "ZZ Test Denim", category: "Bottoms", price: 96, sizes: ["28", "30", "32", "34", "36"], colors: [{ name: "Indigo", hex: "#2f3e5c" }], stock: 0 },
+  { id: "zp16", name: "ZZ Test Beanie", category: "Accessories", price: 24, sizes: ["One Size"], colors: [{ name: "Black", hex: "#141414" }], stock: 200 },
+]
+
 try {
+  await db.from("products").delete().in("id", TEST_PRODUCTS.map((x) => x.id))
+  {
+    const { error } = await db.from("products").insert(TEST_PRODUCTS.map((x) => ({ ...x, sku: x.id.toUpperCase(), active: true, reorder_level: 5 })))
+    if (error) throw new Error("couldn't create test products: " + error.message)
+  }
   // ---------- shipping + plain totals ----------
-  let q = await quote([line("p01")])
+  let q = await quote([line("zp01")])
   ok("plain bag: $32 + $9 shipping = $41", q.subtotal === 32 && q.shipping === 9 && q.total === 41 && q.sale_discount === 0, JSON.stringify({ s: q.subtotal, sh: q.shipping, t: q.total }))
-  q = await quote([line("p05"), line("p01")])
+  q = await quote([line("zp05"), line("zp01")])
   ok("free shipping at $100+", q.subtotal === 110 && q.shipping === 0 && q.total === 110)
 
   // ---------- code types ----------
   const pct = await code("PCT20", { kind: "percent", value: 20 })
-  q = await quote([line("p05"), line("p01")], pct)
+  q = await quote([line("zp05"), line("zp01")], pct)
   ok("20% code on $110 = $22 off", q.discount === 22 && q.total === 88 && q.code === pct, `disc ${q.discount}`)
-  q = await quote([line("p05"), line("p01")], pct.toLowerCase())
+  q = await quote([line("zp05"), line("zp01")], pct.toLowerCase())
   ok("codes are case-insensitive", q.discount === 22)
 
   const fixed = await code("FIX10", { kind: "fixed", value: 10, min_spend: 50 })
-  q = await quote([line("p01")], fixed)
+  q = await quote([line("zp01")], fixed)
   ok("minimum spend is enforced (message, bag still priced)", q.discount === 0 && /at least \$50/.test(q.code_error ?? "") && q.total === 41, q.code_error ?? "")
-  q = await quote([line("p05"), line("p01")], fixed)
+  q = await quote([line("zp05"), line("zp01")], fixed)
   ok("fixed $10 off once the minimum is met", q.discount === 10 && q.total === 100)
   const bigFixed = await code("FIX500", { kind: "fixed", value: 500 })
-  q = await quote([line("p01")], bigFixed)
+  q = await quote([line("zp01")], bigFixed)
   ok("a fixed code can never discount more than the bag", q.discount === 32, `disc ${q.discount}`)
 
   const ship = await code("SHIPFREE", { kind: "free_shipping" })
-  q = await quote([line("p01")], ship)
+  q = await quote([line("zp01")], ship)
   ok("free-shipping code removes the $9", q.shipping === 0 && q.total === 32 && q.free_shipping)
 
   // ---------- category scope ----------
   const tees = await code("TEES50", { kind: "percent", value: 50, categories: ["Tees"] })
-  q = await quote([line("p01"), line("p05")], tees)
+  q = await quote([line("zp01"), line("zp05")], tees)
   ok("category code only discounts matching items ($32 tee -> $16)", q.discount === 16, `disc ${q.discount}`)
-  q = await quote([line("p05")], tees)
+  q = await quote([line("zp05")], tees)
   ok("category code with nothing eligible explains why", q.discount === 0 && /only applies to Tees/.test(q.code_error ?? ""), q.code_error ?? "")
 
   // ---------- validity ----------
@@ -80,58 +96,58 @@ try {
   const old = await code("EXPIRED", { kind: "percent", value: 10, starts_at: new Date(Date.now() - 172800000).toISOString(), ends_at: past })
   const soon = await code("SOON", { kind: "percent", value: 10, starts_at: future })
   const off = await code("OFF", { kind: "percent", value: 10, active: false })
-  ok("expired code", /expired/.test((await quote([line("p01")], old)).code_error ?? ""))
-  ok("not-yet-started code", /not active yet/.test((await quote([line("p01")], soon)).code_error ?? ""))
-  ok("disabled code", /not valid/.test((await quote([line("p01")], off)).code_error ?? ""))
-  ok("unknown code", /not valid/.test((await quote([line("p01")], "NOPE123")).code_error ?? ""))
+  ok("expired code", /expired/.test((await quote([line("zp01")], old)).code_error ?? ""))
+  ok("not-yet-started code", /not active yet/.test((await quote([line("zp01")], soon)).code_error ?? ""))
+  ok("disabled code", /not valid/.test((await quote([line("zp01")], off)).code_error ?? ""))
+  ok("unknown code", /not valid/.test((await quote([line("zp01")], "NOPE123")).code_error ?? ""))
 
   // ---------- sales ----------
   const all25 = await sale({ name: "ZZ all", percent: 25 })
-  q = await quote([line("p01")])
+  q = await quote([line("zp01")])
   ok("25% store-wide sale: $32 -> $24, list price kept", q.lines[0].price === 24 && q.lines[0].list_price === 32 && q.sale_discount === 8 && q.subtotal === 24, JSON.stringify({ p: q.lines[0].price, sd: q.sale_discount }))
   ok("sale price matches the app's rounding (15% of $32)", Math.round((32 * 15) / 100) === 5)
   await db.from("sales").update({ active: false }).eq("id", all25)
   const catSale = await sale({ name: "ZZ tees", percent: 40, scope: "categories", categories: ["Tees"] })
-  const prodSale = await sale({ name: "ZZ one", percent: 10, scope: "products", product_ids: ["p01"] })
-  q = await quote([line("p01"), line("p05")])
+  const prodSale = await sale({ name: "ZZ one", percent: 10, scope: "products", product_ids: ["zp01"] })
+  q = await quote([line("zp01"), line("zp05")])
   ok("overlapping sales: the best one wins (40% beats 10%)", q.lines[0].price === 32 - 13 && q.lines[1].price === 78, JSON.stringify(q.lines.map((l) => l.price)))
   ok("a sale outside its category doesn't touch other products", q.lines[1].price === q.lines[1].list_price)
   await db.from("sales").update({ ends_at: past, starts_at: new Date(Date.now() - 172800000).toISOString() }).eq("id", catSale)
-  q = await quote([line("p01")])
+  q = await quote([line("zp01")])
   ok("an ended sale stops applying (only the 10% product sale remains)", q.lines[0].price === 32 - 3, `price ${q.lines[0].price}`)
   await db.from("sales").update({ active: false }).eq("id", prodSale)
 
   // sale + code combine: code works on the sale-adjusted subtotal
   const s50 = await sale({ name: "ZZ 50", percent: 50 })
-  q = await quote([line("p05"), line("p01")], pct)
+  q = await quote([line("zp05"), line("zp01")], pct)
   ok("sale + code combine on the sale price (110 -> 55, then 20% = 11)", q.subtotal === 55 && q.discount === 11 && q.total === 55 - 11 + 9 && q.sale_discount === 55, JSON.stringify({ s: q.subtotal, d: q.discount, t: q.total }))
   await db.from("sales").update({ active: false }).eq("id", s50)
 
   // ---------- bag problems ----------
   ok("empty bag is refused", /empty/.test(await quoteErr([])))
-  ok("invalid size is refused", /Invalid size/.test(await quoteErr([line("p01", "XXXL")])))
-  ok("invalid colour is refused", /Invalid colour/.test(await quoteErr([line("p01", "M", "Pink")])))
-  ok("a sold-out product can't be bought", /sold out/i.test(await quoteErr([line("p10", "32", "Indigo")])), "p10 has 0 in stock")
-  const m06 = ((await db.from("products").select("size_stock").eq("id", "p06").single()).data!.size_stock as Record<string, number>).M
-  ok("two colours of one size are checked together against that size's stock", /Only \d+ left/.test(await quoteErr([line("p06", "M", "Black", m06), line("p06", "M", "Olive", 1)])), `p06 size M stock ${m06}`)
+  ok("invalid size is refused", /Invalid size/.test(await quoteErr([line("zp01", "XXXL")])))
+  ok("invalid colour is refused", /Invalid colour/.test(await quoteErr([line("zp01", "M", "Pink")])))
+  ok("a sold-out product can't be bought", /sold out/i.test(await quoteErr([line("zp10", "32", "Indigo")])), "zp10 has 0 in stock")
+  const m06 = ((await db.from("products").select("size_stock").eq("id", "zp06").single()).data!.size_stock as Record<string, number>).M
+  ok("two colours of one size are checked together against that size's stock", /Only \d+ left/.test(await quoteErr([line("zp06", "M", "Black", m06), line("zp06", "M", "Olive", 1)])), `zp06 size M stock ${m06}`)
 
   // ---------- real checkout ----------
   const e1 = `${TAG.toLowerCase()}-a@example.com`
-  const stock01 = (await db.from("products").select("stock").eq("id", "p01").single()).data!.stock
-  const got = await place(e1, [line("p05"), line("p01", "L")], pct)
+  const stock01 = (await db.from("products").select("stock").eq("id", "zp01").single()).data!.stock
+  const got = await place(e1, [line("zp05"), line("zp01", "L")], pct)
   const row = Array.isArray(got.data) ? got.data[0] : got.data
   ok("checkout succeeds with a code", !got.error && row?.order_total === 88, got.error?.message ?? `total ${row?.order_total}`)
   if (row) created.orders.push(row.order_id)
   const o = (await db.from("orders").select("*, order_items(*)").eq("id", row.order_id).single()).data!
   ok("order stores subtotal/discount/code/shipping/total/sale_discount", o.subtotal === 110 && o.discount === 22 && o.discount_code === pct && o.shipping === 0 && o.total === 88 && o.sale_discount === 0 && o.sim === false)
   ok("order items store charged + list price", o.order_items.every((i: { price: number; list_price: number }) => i.price === i.list_price))
-  const after01 = (await db.from("products").select("stock").eq("id", "p01").single()).data!.stock
+  const after01 = (await db.from("products").select("stock").eq("id", "zp01").single()).data!.stock
   ok("stock went down by the quantity bought", after01 === stock01 - 1, `${stock01} -> ${after01}`)
 
   // sale prices are what's charged and recorded
   const s30 = await sale({ name: "ZZ 30", percent: 30 })
   const e2 = `${TAG.toLowerCase()}-b@example.com`
-  const got2 = await place(e2, [line("p05")])
+  const got2 = await place(e2, [line("zp05")])
   const r2 = Array.isArray(got2.data) ? got2.data[0] : got2.data
   if (r2) created.orders.push(r2.order_id)
   const o2 = (await db.from("orders").select("*, order_items(*)").eq("id", r2.order_id).single()).data!
@@ -141,38 +157,38 @@ try {
   // ---------- per-customer + first-order rules ----------
   const once = await code("ONCE", { kind: "percent", value: 10, once_per_customer: true })
   const e3 = `${TAG.toLowerCase()}-c@example.com`
-  const first = await place(e3, [line("p01")], once)
+  const first = await place(e3, [line("zp01")], once)
   const r3 = Array.isArray(first.data) ? first.data[0] : first.data
   if (r3) created.orders.push(r3.order_id)
   ok("once-per-customer: first use works", !first.error)
-  const second = await place(e3, [line("p01")], once)
+  const second = await place(e3, [line("zp01")], once)
   ok("once-per-customer: same email refused the second time", /already used/.test(second.error?.message ?? ""), second.error?.message ?? "(no error!)")
   if (!second.error && second.data) created.orders.push((Array.isArray(second.data) ? second.data[0] : second.data).order_id)
-  q = await quote([line("p01")], once, e3)
+  q = await quote([line("zp01")], once, e3)
   ok("quote shows that message before checkout", /already used/.test(q.code_error ?? ""))
-  q = await quote([line("p01")], once, `${TAG.toLowerCase()}-other@example.com`)
+  q = await quote([line("zp01")], once, `${TAG.toLowerCase()}-other@example.com`)
   ok("a different email can still use it", q.discount > 0)
 
   const firstOnly = await code("FIRST", { kind: "percent", value: 15, first_order_only: true })
-  q = await quote([line("p01")], firstOnly, e3)
+  q = await quote([line("zp01")], firstOnly, e3)
   ok("first-order-only refuses a returning customer", /first orders only/.test(q.code_error ?? ""))
-  q = await quote([line("p01")], firstOnly, `${TAG.toLowerCase()}-brandnew@example.com`)
+  q = await quote([line("zp01")], firstOnly, `${TAG.toLowerCase()}-brandnew@example.com`)
   ok("first-order-only accepts a new customer", q.discount > 0)
-  q = await quote([line("p01")], firstOnly, "")
+  q = await quote([line("zp01")], firstOnly, "")
   ok("without an email yet, the quote notes it'll be checked at checkout", q.discount > 0 && /email at checkout/.test(q.code_note ?? ""))
-  const noEmail = await db.rpc("place_order", { p_name: "ZZ", p_email: "x", p_city: null, p_state: null, p_items: [line("p01")], p_code: null })
+  const noEmail = await db.rpc("place_order", { p_name: "ZZ", p_email: "x", p_city: null, p_state: null, p_items: [line("zp01")], p_code: null })
   ok("checkout needs a valid email", Boolean(noEmail.error))
 
   // ---------- usage limit, including a race ----------
   const lim = await code("LIMIT1", { kind: "percent", value: 10, usage_limit: 1 })
   const [a, b] = await Promise.all([
-    place(`${TAG.toLowerCase()}-r1@example.com`, [line("p16", "One Size")], lim),
-    place(`${TAG.toLowerCase()}-r2@example.com`, [line("p16", "One Size")], lim),
+    place(`${TAG.toLowerCase()}-r1@example.com`, [line("zp16", "One Size")], lim),
+    place(`${TAG.toLowerCase()}-r2@example.com`, [line("zp16", "One Size")], lim),
   ])
   for (const x of [a, b]) if (!x.error && x.data) created.orders.push((Array.isArray(x.data) ? x.data[0] : x.data).order_id)
   const winners = [a, b].filter((x) => !x.error).length
   ok("usage limit of 1 under a race: exactly one checkout wins", winners === 1, `${winners} succeeded; other said: ${[a, b].find((x) => x.error)?.error?.message}`)
-  q = await quote([line("p16", "One Size")], lim)
+  q = await quote([line("zp16", "One Size")], lim)
   ok("afterwards the quote says it's fully used", /fully used/.test(q.code_error ?? ""))
 
   // welcome code row exists and behaves like before
@@ -191,10 +207,12 @@ try {
     await db.from("orders").delete().eq("id", id)
   }
   for (const e of created.emails) await db.from("customers").delete().eq("email", e)
+  await db.from("products").delete().in("id", TEST_PRODUCTS.map((x) => x.id))
   await db.from("discount_codes").delete().in("code", created.codes)
   if (created.sales.length) await db.from("sales").delete().in("id", created.sales)
   const leftoverCodes = (await db.from("discount_codes").select("code").like("code", `${TAG}%`)).data?.length ?? 0
   const leftoverSales = (await db.from("sales").select("id").like("name", "ZZ %")).data?.length ?? 0
   const leftoverCustomers = (await db.from("customers").select("id").like("email", `${TAG.toLowerCase()}-%`)).data?.length ?? 0
-  ok("cleaned up: no test codes, sales, orders or customers left", leftoverCodes === 0 && leftoverSales === 0 && leftoverCustomers === 0)
+    const leftoverProducts = (await db.from("products").select("id").like("id", "zp%")).data?.length ?? 0
+  ok("cleaned up: no test codes, sales, orders, customers or products left", leftoverCodes === 0 && leftoverSales === 0 && leftoverCustomers === 0 && leftoverProducts === 0)
 }

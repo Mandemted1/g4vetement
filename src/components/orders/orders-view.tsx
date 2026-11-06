@@ -15,7 +15,9 @@ import { StatusBadge, statusLabel } from "@/components/status-badge"
 import { Pager } from "@/components/pager"
 import { type Order, type OrderStatus } from "@/lib/data"
 import { useAdmin } from "@/components/admin-data"
-import { setOrderStatus } from "@/app/admin/actions"
+import { saveTracking, setOrderStatus, shipOrder, type TrackingInput } from "@/app/admin/actions"
+import { TrackingForm } from "@/components/orders/tracking-form"
+import { countryName } from "@/lib/countries"
 import { Button } from "@/components/ui/button"
 import { dateLabel, initials, money, timeLabel } from "@/lib/format"
 
@@ -134,6 +136,18 @@ function OrderDetail({ o }: { o: Order }) {
   const c = customerById.get(o.customerId) ?? { name: "Guest", email: "", city: "", state: "", id: "" }
   const next = NEXT[o.status]
   const terminal = o.status === "cancelled" || o.status === "refunded"
+  // shipping an order opens the tracking form; a shipped order's tracking can be edited
+  const [tracking, setTracking] = useState<"ship" | "edit" | null>(null)
+  const hasShipped = o.status === "shipped" || o.status === "delivered"
+  const submitTracking = (t: TrackingInput | null, opts: { resend: boolean }) => {
+    setErr("")
+    start(async () => {
+      const r = tracking === "ship" ? await shipOrder(o.id, t) : t ? await saveTracking(o.id, t, opts.resend) : { ok: false as const, error: "Enter the tracking number." }
+      if (!r.ok) return setErr(r.error)
+      setTracking(null)
+      router.refresh()
+    })
+  }
   const change = (to: OrderStatus, confirmMsg?: string) => {
     if (confirmMsg && !window.confirm(confirmMsg)) return
     setErr("")
@@ -154,7 +168,18 @@ function OrderDetail({ o }: { o: Order }) {
       <div className="flex items-center justify-between"><StatusBadge status={o.status} /><span className="text-xl font-semibold tabular">{money(o.total)}</span></div>
       {!terminal && (
         <div className="flex flex-col gap-2">
-          {next && <Button disabled={busy} onClick={() => change(next)}>{busy ? "Saving…" : `Mark as ${statusLabel[next].toLowerCase()}`}</Button>}
+          {o.status === "processing" && tracking !== "ship" && <Button disabled={busy} onClick={() => { setErr(""); setTracking("ship") }}>Mark as shipped…</Button>}
+          {next && o.status !== "processing" && <Button disabled={busy} onClick={() => change(next)}>{busy ? "Saving…" : `Mark as ${statusLabel[next].toLowerCase()}`}</Button>}
+          {tracking === "ship" && (
+            <TrackingForm
+              busy={busy}
+              error={err}
+              primary={{ label: "Mark shipped & email customer" }}
+              secondary={{ label: "Ship without tracking", skipTracking: true }}
+              onSubmit={submitTracking}
+              onCancel={() => { setTracking(null); setErr("") }}
+            />
+          )}
           {o.status === "delivered" ? (
             <Button variant="outline" disabled={busy} onClick={() => change("refunded", `Refund order #${o.id}?`)}>Refund</Button>
           ) : (
@@ -162,7 +187,40 @@ function OrderDetail({ o }: { o: Order }) {
           )}
         </div>
       )}
-      {err && <p className="text-xs text-negative">{err}</p>}
+      {err && tracking === null && <p className="text-xs text-negative">{err}</p>}
+      {hasShipped && (
+        <div className="flex flex-col gap-2 text-sm">
+          <h3 className="font-medium">Tracking</h3>
+          {tracking === "edit" ? (
+            <TrackingForm
+              initial={o.tracking}
+              busy={busy}
+              error={err}
+              primary={{ label: "Save & email customer", resend: true }}
+              secondary={{ label: "Save without emailing", resend: false }}
+              onSubmit={submitTracking}
+              onCancel={() => { setTracking(null); setErr("") }}
+            />
+          ) : o.tracking ? (
+            <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
+              <div className="min-w-0">
+                <div className="text-xs text-muted-foreground">{o.tracking.carrier}</div>
+                {o.tracking.url ? (
+                  <a href={o.tracking.url} target="_blank" rel="noopener noreferrer" className="block truncate font-mono underline-offset-2 hover:underline">{o.tracking.number}</a>
+                ) : (
+                  <span className="block truncate font-mono">{o.tracking.number}</span>
+                )}
+              </div>
+              <Button variant="outline" size="sm" onClick={() => { setErr(""); setTracking("edit") }}>Edit</Button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed px-3 py-2.5">
+              <span className="text-muted-foreground">Shipped without a tracking number.</span>
+              <Button variant="outline" size="sm" onClick={() => { setErr(""); setTracking("edit") }}>Add tracking</Button>
+            </div>
+          )}
+        </div>
+      )}
       {idx >= 0 && (
         <div className="flex items-center gap-1">
           {steps.map((s, i) => (
@@ -178,7 +236,7 @@ function OrderDetail({ o }: { o: Order }) {
         <h3 className="mb-3 text-sm font-medium">Items</h3>
         <ul className="flex flex-col gap-3">
           {o.items.map((i) => (
-            <li key={i.productId} className="flex items-center gap-3 text-sm">
+            <li key={`${i.productId}-${i.size}-${i.color}`} className="flex items-center gap-3 text-sm">
               <ProductThumb image={productById.get(i.productId)?.images[0]} color={i.colorHex} className="size-10 rounded-lg" />
               <div className="min-w-0 flex-1"><div className="truncate font-medium">{i.name}</div><div className="text-xs text-muted-foreground">{i.color} · {i.size} · Qty {i.qty}</div></div>
               <span className="tabular">{i.listPrice && i.listPrice > i.price && <s className="mr-1.5 text-muted-foreground">{money(i.listPrice * i.qty)}</s>}{money(i.price * i.qty)}</span>
@@ -191,7 +249,7 @@ function OrderDetail({ o }: { o: Order }) {
         <div className="flex justify-between"><dt className="text-muted-foreground">Subtotal</dt><dd className="tabular">{money(o.subtotal)}</dd></div>
         {(o.saleDiscount ?? 0) > 0 && <div className="flex justify-between"><dt className="text-muted-foreground">Sale</dt><dd className="tabular">−{money(o.saleDiscount ?? 0)}</dd></div>}
         {o.discount > 0 && <div className="flex justify-between"><dt className="text-muted-foreground">Discount ({o.discountCode})</dt><dd className="tabular">−{money(o.discount)}</dd></div>}
-        <div className="flex justify-between"><dt className="text-muted-foreground">Shipping</dt><dd className="tabular">{o.shipping ? money(o.shipping) : "Free"}</dd></div>
+        <div className="flex justify-between"><dt className="text-muted-foreground">Shipping{o.ship?.method ? ` (${o.ship.method})` : ""}</dt><dd className="tabular">{o.shipping ? money(o.shipping) : "Free"}</dd></div>
         <div className="flex justify-between border-t pt-2 font-semibold"><dt>Total</dt><dd className="tabular">{money(o.total)}</dd></div>
       </dl>
       <Separator />
@@ -202,6 +260,21 @@ function OrderDetail({ o }: { o: Order }) {
           <div><div className="font-medium">{c.name}</div><div className="text-xs text-muted-foreground">{c.email} · {c.city}, {c.state}</div></div>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">Paid with {o.payment}</p>
+      </div>
+      <Separator />
+      <div className="text-sm">
+        <h3 className="mb-2 font-medium">Ship to</h3>
+        {o.ship ? (
+          <address className="not-italic leading-relaxed">
+            <div>{c.name}</div>
+            {o.ship.address && <div>{o.ship.address}</div>}
+            <div>{[o.ship.city, o.ship.state, o.ship.postcode].filter(Boolean).join(", ")}</div>
+            {o.ship.country && <div>{countryName(o.ship.country)}</div>}
+            {o.ship.estimate && <div className="mt-1 text-xs text-muted-foreground">Quoted delivery: {o.ship.estimate}</div>}
+          </address>
+        ) : (
+          <p className="text-muted-foreground">No delivery address was saved for this order{c.city ? ` (customer city: ${c.city}${c.state ? `, ${c.state}` : ""})` : ""}.</p>
+        )}
       </div>
     </div>
   )

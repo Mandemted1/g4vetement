@@ -136,7 +136,7 @@ export function CampaignEditor({ item, products, storeUrl, counts }: { item: Cam
       {msg && <p className={msg.ok ? "text-sm text-positive" : "text-sm text-negative"}>{msg.text}</p>}
 
       <div className={locked ? "pointer-events-none opacity-70" : ""}>
-        <EmailEditor doc={doc} onDoc={setDoc} subject={subject} onSubject={setSubject} preheader={preheader} onPreheader={setPreheader} products={products} kind="marketing" storeUrl={storeUrl} hide={["order"]} />
+        <EmailEditor doc={doc} onDoc={setDoc} subject={subject} onSubject={setSubject} preheader={preheader} onPreheader={setPreheader} products={products} kind="marketing" storeUrl={storeUrl} hide={["order", "tracking"]} />
       </div>
     </div>
   )

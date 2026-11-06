@@ -48,7 +48,8 @@ try {
   ok("an empty policy (Returns) is not linked", !shop.html.includes("/policies/returns"))
 
   const ship = await get("/policies/shipping")
-  ok("shipping page renders your text", ship.status === 200 && ship.html.includes("Orders over $100 ship free") && ship.html.includes("Shipping rates"))
+  ok("shipping page renders your text", ship.status === 200 && ship.html.includes("Shipping depends on where your order is going") && ship.html.includes("Shipping rates"))
+  ok("…and lists the current rates from your shipping zones", ship.html.includes("Current rates"))
   ok("empty policy page is a 404", (await get("/policies/returns")).status === 404)
   ok("unknown policy page is a 404", (await get("/policies/nonsense")).status === 404)
 

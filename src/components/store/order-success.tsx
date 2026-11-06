@@ -16,6 +16,10 @@ export interface SuccessData {
   shipping: number
   /** after sale, before the code */
   subtotal: number
+  /** e.g. "3–7 business days" (empty when unknown) */
+  estimate: string
+  /** name and address lines, separated by newlines */
+  shipTo: string
   email: string
   items: { productId: string; name: string; color: string; colorHex: string; size: string; qty: number; price: number }[]
 }
@@ -110,6 +114,17 @@ export function OrderSuccess({ data, onClose }: { data: SuccessData | null; onCl
                 <div className="flex justify-between"><dt>Shipping</dt><dd>{data.shipping ? price(data.shipping) : "Free"}</dd></div>
                 <div className="flex justify-between text-[12px]"><dt>Total</dt><dd>{price(data.total)}</dd></div>
               </dl>
+              {(data.shipTo || data.estimate) && (
+                <div className="mt-8 border-t pt-5">
+                  {data.shipTo && (
+                    <>
+                      <p className="label text-[var(--mute)]">Delivering to</p>
+                      <p className="mt-2 whitespace-pre-line text-[13px] leading-relaxed">{data.shipTo}</p>
+                    </>
+                  )}
+                  {data.estimate && <p className="label mt-4">Estimated delivery: {data.estimate}</p>}
+                </div>
+              )}
             </motion.aside>
           </div>
         </motion.div>

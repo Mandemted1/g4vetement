@@ -10,7 +10,7 @@ import { renderEmail, type ProductLite } from "@/lib/email/render"
 import { BLOCK_LABELS, VARIABLES, newBlock, uid, type Align, type Block, type BlockType, type EmailDoc } from "@/lib/email/types"
 import { cn } from "@/lib/utils"
 
-const TYPES: BlockType[] = ["heading", "text", "image", "button", "products", "discount", "divider", "spacer", "order"]
+const TYPES: BlockType[] = ["heading", "text", "image", "button", "products", "discount", "divider", "spacer", "order", "tracking"]
 const area = "min-h-20 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
 const lbl = "flex flex-col gap-1.5 text-xs text-muted-foreground"
 
@@ -79,7 +79,7 @@ export function EmailEditor({ doc, onDoc, subject, onSubject, preheader, onPrehe
     const sample = Object.fromEntries(VARIABLES.map((v) => [v.key, v.key === "store_url" ? storeUrl : v.sample]))
     return renderEmail(
       doc,
-      { vars: sample, storeUrl, address: "Your business address", kind, unsubscribeUrl: "#", products, order: { items, subtotal, discount: 0, shipping, total: subtotal + shipping } },
+      { vars: sample, storeUrl, address: "Your business address", kind, unsubscribeUrl: "#", products, order: { items, subtotal, discount: 0, shipping, total: subtotal + shipping, shipTo: ["Alex Morgan", "12 Example Street", "Accra, GA", "Ghana"], estimate: "3–7 business days", tracking: { carrier: "UPS", number: "1Z999AA10123456784", url: "https://example.com/track" } } },
       { subject, preheader },
     ).html
   }, [doc, subject, preheader, products, kind, storeUrl])
@@ -330,6 +330,8 @@ function Fields({ b, patch, products, track }: { b: Block; patch: (p: Partial<Bl
     case "divider":
       return <p className="text-xs text-muted-foreground">A thin line between sections.</p>
     case "order":
-      return <p className="text-xs text-muted-foreground">Shows the customer&apos;s items, discount, shipping and total. The preview uses sample products.</p>
+      return <p className="text-xs text-muted-foreground">Shows the customer&apos;s items, discount, shipping, total and delivery address. The preview uses sample products.</p>
+    case "tracking":
+      return <p className="text-xs text-muted-foreground">Shows the carrier, tracking number and a “Track your package” button. Only appears when you add a tracking number while marking the order shipped. For the “Order shipped” email.</p>
   }
 }

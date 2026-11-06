@@ -16,6 +16,12 @@ export interface OrderInfo {
   discount: number
   shipping: number
   total: number
+  /** delivery address, one line per entry (name, street, city/postcode, country) */
+  shipTo?: string[]
+  /** quoted delivery time, e.g. "3–5 business days" */
+  estimate?: string
+  /** set once the order has shipped with a tracking number */
+  tracking?: { carrier: string; number: string; url: string }
 }
 export interface ProductLite {
   id: string
@@ -107,7 +113,16 @@ function block(b: Block, d: EmailDoc, c: RenderContext): string {
         `<tr><td style="padding:14px 0;border-bottom:1px solid #d9d7d0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${l.image ? `<td width="64" valign="top"><img src="${esc(cloudinaryUrl(l.image.startsWith("/") ? c.storeUrl + l.image : l.image, { w: 112, f: "jpg" }))}" width="56" alt="" style="display:block;border:0;"></td>` : ""}<td valign="top" style="font-family:${FONT};font-size:14px;color:${ink};">${esc(l.name)}<div style="padding-top:4px;font-family:${MONO};font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:${mute};">${esc(l.color)} / ${esc(l.size)} / Qty ${l.qty}</div></td><td align="right" valign="top" style="font-family:${MONO};font-size:12px;color:${ink};">${usd(l.price * l.qty)}</td></tr></table></td></tr>`
       const sum = (label: string, v: string, bold = false) =>
         `<tr><td style="padding:5px 0;font-family:${MONO};font-size:${bold ? 12 : 11}px;letter-spacing:0.08em;text-transform:uppercase;color:${bold ? ink : mute};">${label}</td><td align="right" style="padding:5px 0;font-family:${MONO};font-size:${bold ? 12 : 11}px;color:${ink};">${v}</td></tr>`
-      return `<tr><td style="padding:10px 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #d9d7d0;">${o.items.map(line).join("")}</table><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;">${sum("Subtotal", usd(o.subtotal))}${o.discount ? sum("Discount", "−" + usd(o.discount)) : ""}${sum("Shipping", o.shipping ? usd(o.shipping) : "Free")}${sum("Total", usd(o.total), true)}</table></td></tr>`
+      return `<tr><td style="padding:10px 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #d9d7d0;">${o.items.map(line).join("")}</table><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;">${sum("Subtotal", usd(o.subtotal))}${o.discount ? sum("Discount", "−" + usd(o.discount)) : ""}${sum("Shipping", o.shipping ? usd(o.shipping) : "Free")}${sum("Total", usd(o.total), true)}</table>${o.shipTo?.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:18px;"><tr><td style="font-family:${MONO};font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:${mute};padding-bottom:6px;">Delivering to</td></tr><tr><td style="font-family:${FONT};font-size:14px;line-height:1.5;color:${ink};">${o.shipTo.map(esc).join("<br>")}${o.estimate ? `<div style="padding-top:6px;font-family:${MONO};font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:${mute};">Estimated delivery: ${esc(o.estimate)}</div>` : ""}</td></tr></table>` : ""}</td></tr>`
+    }
+    case "tracking": {
+      const t = c.order?.tracking
+      if (!t) {
+        // an order that shipped without tracking shows nothing; the editor preview (no order yet) shows a stand-in
+        return c.order ? "" : `<tr><td style="padding:10px 32px;"><div style="background:#e2e1dc;color:${mute};font-family:${MONO};font-size:11px;letter-spacing:0.08em;text-transform:uppercase;text-align:center;padding:40px 0;">Tracking details appear here</div></td></tr>`
+      }
+      const link = /^https?:\/\//i.test(t.url) ? t.url : ""
+      return `<tr><td style="padding:10px 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #d9d7d0;"><tr><td style="padding:18px 18px 16px;"><div style="font-family:${MONO};font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:${mute};">Tracking${t.carrier ? " · " + esc(t.carrier) : ""}</div><div style="padding-top:8px;font-family:${MONO};font-size:17px;letter-spacing:0.04em;color:${ink};word-break:break-all;">${esc(t.number)}</div>${link ? `<div style="padding-top:14px;"><a href="${esc(link)}" style="display:inline-block;padding:13px 24px;font-family:${MONO};font-size:11px;letter-spacing:0.1em;text-transform:uppercase;text-decoration:none;background:${ink};color:${d.theme.card};">Track your package</a></div>` : ""}</td></tr></table></td></tr>`
     }
   }
 }
@@ -131,8 +146,17 @@ function toText(doc: EmailDoc, c: RenderContext, subject: string): string {
     else if (b.type === "button") out.push(`${b.label}: ${plain(b.url)}`, "")
     else if (b.type === "discount") out.push(`Code: ${plain(b.code)} (${plain(b.note)})`, "")
     else if (b.type === "products") out.push(...(b.ids.map((id) => c.products?.find((p) => p.id === id)).filter(Boolean) as ProductLite[]).map((p) => `${p.name} ${usd(p.price)} ${c.storeUrl}/product/${p.id}`), "")
-    else if (b.type === "order" && c.order) out.push(...c.order.items.map((l) => `${l.qty} x ${l.name} (${l.color}/${l.size}) ${usd(l.price * l.qty)}`), `Total ${usd(c.order.total)}`, "")
+    else if (b.type === "tracking" && c.order?.tracking) out.push(`Tracking (${c.order.tracking.carrier}): ${c.order.tracking.number}${c.order.tracking.url ? " " + c.order.tracking.url : ""}`, "")
+    else if (b.type === "order" && c.order) out.push(...c.order.items.map((l) => `${l.qty} x ${l.name} (${l.color}/${l.size}) ${usd(l.price * l.qty)}`), `Total ${usd(c.order.total)}`, ...(c.order.shipTo?.length ? ["", "Delivering to:", ...c.order.shipTo] : []), "")
   }
   out.push(c.kind === "marketing" && c.unsubscribeUrl ? `Unsubscribe: ${c.unsubscribeUrl}` : "", c.address)
   return out.join("\n").trim()
+}
+
+/** A "shipped" email you edited before tracking existed has no tracking block; add one above the order summary so the customer still gets it. */
+export function withTrackingBlock(doc: EmailDoc): EmailDoc {
+  if (doc.blocks.some((b) => b.type === "tracking")) return doc
+  const at = doc.blocks.findIndex((b) => b.type === "order")
+  const block = { id: "tracking-auto", type: "tracking" as const }
+  return { ...doc, blocks: at >= 0 ? [...doc.blocks.slice(0, at), block, ...doc.blocks.slice(at)] : [...doc.blocks, block] }
 }
