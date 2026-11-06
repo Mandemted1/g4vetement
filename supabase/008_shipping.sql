@@ -18,7 +18,7 @@ create table if not exists shipping_zones (
 );
 alter table shipping_zones enable row level security;
 drop policy if exists "admin manage shipping zones" on shipping_zones;
-create policy "admin manage shipping zones" on shipping_zones for all to authenticated using (is_admin()) with check (is_admin());
+create policy "admin manage shipping zones" on shipping_zones for all to authenticated using (can_do('settings.manage')) with check (can_do('settings.manage'));
 
 -- A store that has never set up shipping keeps the original rule for everyone: $9, free over $100.
 insert into shipping_zones (name, countries, rate, free_over, estimate)

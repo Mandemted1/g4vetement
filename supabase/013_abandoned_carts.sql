@@ -28,7 +28,7 @@ create table if not exists cart_reminder_optouts (
 alter table abandoned_carts enable row level security;
 alter table cart_reminder_optouts enable row level security;
 drop policy if exists "admin read abandoned carts" on abandoned_carts;
-create policy "admin read abandoned carts" on abandoned_carts for select to authenticated using (is_admin());
+create policy "admin read abandoned carts" on abandoned_carts for select to authenticated using (can_do('marketing.manage'));
 drop policy if exists "admin read reminder optouts" on cart_reminder_optouts;
-create policy "admin read reminder optouts" on cart_reminder_optouts for select to authenticated using (is_admin());
+create policy "admin read reminder optouts" on cart_reminder_optouts for select to authenticated using (can_do('marketing.manage'));
 -- (no other policies: shoppers can't read or write these tables)

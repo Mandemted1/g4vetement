@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { adminClient } from "@/lib/admin-auth"
+import { adminClient, noAccess } from "@/lib/admin-auth"
 import { isCategoryDepartment, type CategoryDepartment } from "@/lib/departments"
 import { isLive } from "@/lib/supabase/env"
 
@@ -21,8 +21,8 @@ const cleanName = (n: string) => n.trim().replace(/\s+/g, " ")
 
 export async function createCategory(name: string, description = "", department: CategoryDepartment = "both"): Promise<Result<{ id: string; name: string }>> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("products.manage")
+  if (!db) return { ok: false, error: await noAccess("products.manage") }
   const n = cleanName(name)
   if (!n || n.length > 40) return { ok: false, error: "Category names must be 1 to 40 characters." }
   if (!isCategoryDepartment(department)) return { ok: false, error: "Choose Men, Women or both." }
@@ -36,8 +36,8 @@ export async function createCategory(name: string, description = "", department:
 
 export async function updateCategory(id: string, v: { name: string; description: string; active: boolean; department: CategoryDepartment }): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("products.manage")
+  if (!db) return { ok: false, error: await noAccess("products.manage") }
   const n = cleanName(v.name)
   if (!n || n.length > 40) return { ok: false, error: "Category names must be 1 to 40 characters." }
   if (!isCategoryDepartment(v.department)) return { ok: false, error: "Choose Men, Women or both." }
@@ -57,8 +57,8 @@ export async function updateCategory(id: string, v: { name: string; description:
 /** Swaps a category with its neighbour in the list. */
 export async function moveCategory(id: string, dir: "up" | "down"): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("products.manage")
+  if (!db) return { ok: false, error: await noAccess("products.manage") }
   const { data: all, error } = await db.from("categories").select("id, sort").order("sort").order("name")
   if (error || !all) return { ok: false, error: friendly(error ?? { message: "Couldn't load" }) }
   const i = all.findIndex((c) => c.id === id)
@@ -80,8 +80,8 @@ export async function moveCategory(id: string, dir: "up" | "down"): Promise<Resu
 
 export async function deleteCategory(id: string, moveTo?: string): Promise<Result<{ moved: number }>> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("products.manage")
+  if (!db) return { ok: false, error: await noAccess("products.manage") }
   const { data, error } = await db.rpc("delete_category", { p_id: id, p_move_to: moveTo ?? null })
   if (error) return { ok: false, error: friendly(error) }
   refresh()

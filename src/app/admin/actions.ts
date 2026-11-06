@@ -5,7 +5,8 @@ import { redirect } from "next/navigation"
 import { after } from "next/server"
 import { sendOrderEmail } from "@/lib/email/service"
 import { cloudinaryConfigured, uploadTicket } from "@/lib/cloudinary"
-import { adminClient } from "@/lib/admin-auth"
+import { adminClient, currentStaff, noAccess } from "@/lib/admin-auth"
+import { roleCan } from "@/lib/permissions"
 import { sessionClient } from "@/lib/supabase/clients"
 import { isLive } from "@/lib/supabase/env"
 import type { GarmentType, OrderStatus } from "@/lib/data"
@@ -31,8 +32,8 @@ export async function signOut() {
 /** pending -> processing -> shipped -> delivered, or cancelled / refunded. Cancelling returns stock to the shelf. */
 export async function setOrderStatus(orderId: string, next: OrderStatus): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("orders.manage")
+  if (!db) return { ok: false, error: await noAccess("orders.manage") }
   const { data: order, error: e1 } = await db.from("orders").select("status, order_items(product_id, size, qty)").eq("id", orderId).single()
   if (e1 || !order) return { ok: false, error: e1?.message ?? "Order not found" }
   if (order.status === "cancelled" || order.status === "refunded") return { ok: false, error: `A ${order.status} order can't be changed.` }
@@ -59,8 +60,8 @@ export async function setOrderStatus(orderId: string, next: OrderStatus): Promis
  */
 export async function shipOrder(orderId: string, tracking: TrackingInput | null): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("orders.manage")
+  if (!db) return { ok: false, error: await noAccess("orders.manage") }
   let t: Tracking | null = null
   if (tracking) {
     const c = cleanTracking(tracking)
@@ -83,8 +84,8 @@ export async function shipOrder(orderId: string, tracking: TrackingInput | null)
 /** Adds or corrects the tracking number on a shipped order. `resend` emails the customer the updated details. */
 export async function saveTracking(orderId: string, tracking: TrackingInput, resend: boolean): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("orders.manage")
+  if (!db) return { ok: false, error: await noAccess("orders.manage") }
   const c = cleanTracking(tracking)
   if (!c.ok) return c
   const { data: order } = await db.from("orders").select("status").eq("id", orderId).single()
@@ -139,8 +140,8 @@ const row = (p: ProductInput) => ({
 
 export async function updateProduct(id: string, input: ProductInput): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("products.manage")
+  if (!db) return { ok: false, error: await noAccess("products.manage") }
   const bad = validate(input)
   if (bad) return { ok: false, error: bad }
   const { error } = await db.from("products").update(row(input)).eq("id", id)
@@ -151,8 +152,8 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Re
 
 export async function createProduct(input: ProductInput): Promise<Result<{ id: string }>> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("products.manage")
+  if (!db) return { ok: false, error: await noAccess("products.manage") }
   const bad = validate(input)
   if (bad) return { ok: false, error: bad }
   const { data: all } = await db.from("products").select("id, sort")
@@ -169,8 +170,8 @@ export async function createProduct(input: ProductInput): Promise<Result<{ id: s
 /** Uploads one image to the public `products` bucket and returns its URL. */
 export async function uploadProductPhoto(form: FormData): Promise<Result<{ url: string }>> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("products.manage")
+  if (!db) return { ok: false, error: await noAccess("products.manage") }
   const file = form.get("file")
   if (!(file instanceof File) || file.size === 0) return { ok: false, error: "No file chosen" }
   if (!/^image\/(jpeg|png|webp|avif)$/.test(file.type)) return { ok: false, error: "Use a JPG, PNG, WebP or AVIF image" }
@@ -192,7 +193,9 @@ export async function getUploadTicket(folder: string): Promise<
   | { ok: false; error: string }
 > {
   if (!isLive) return DEMO
-  if (!(await admin())) return { ok: false, error: "Please sign in again." }
+  // photos are for products; the login screen image is a setting
+  const staff = await currentStaff()
+  if (!staff || !(roleCan(staff.role, "products.manage") || roleCan(staff.role, "settings.manage"))) return { ok: false, error: await noAccess("products.manage") }
   if (!cloudinaryConfigured()) return { ok: true, provider: "supabase" }
   return { ok: true, provider: "cloudinary", ...uploadTicket(folder) }
 }
@@ -200,8 +203,8 @@ export async function getUploadTicket(folder: string): Promise<
 /** Saves how the admin login screen looks. Takes effect immediately for the next visitor to /admin/login. */
 export async function saveLoginSettings(v: LoginSettings): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("settings.manage")
+  if (!db) return { ok: false, error: await noAccess("settings.manage") }
   const image = v.image.trim()
   if (image && !/^https:\/\/\S+$/.test(image)) return { ok: false, error: "The image link must start with https://" }
   if (image.length > 600) return { ok: false, error: "That image link is too long." }
@@ -217,8 +220,8 @@ export async function saveLoginSettings(v: LoginSettings): Promise<Result> {
 
 export async function saveStoreSettings(v: StoreSettings): Promise<Result<{ saved: StoreSettings }>> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("settings.manage")
+  if (!db) return { ok: false, error: await noAccess("settings.manage") }
   const c = cleanStore(v)
   if (!c.ok) return c
   const { error } = await db.from("site_settings").upsert({ key: "store", value: c.value, updated_at: new Date().toISOString() })
@@ -230,8 +233,8 @@ export async function saveStoreSettings(v: StoreSettings): Promise<Result<{ save
 /** Which notifications are on, and where alerts go. */
 export async function saveAlertSettings(v: AlertSettings): Promise<Result<{ saved: AlertSettings }>> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("settings.manage")
+  if (!db) return { ok: false, error: await noAccess("settings.manage") }
   const c = cleanAlerts(v)
   if (!c.ok) return c
   const { error } = await db.from("site_settings").upsert({ key: "alerts", value: c.value, updated_at: new Date().toISOString() })
@@ -242,8 +245,8 @@ export async function saveAlertSettings(v: AlertSettings): Promise<Result<{ save
 
 export async function savePolicies(v: Policies): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("settings.manage")
+  if (!db) return { ok: false, error: await noAccess("settings.manage") }
   const c = cleanPolicies(v)
   if (!c.ok) return c
   const { error } = await db.from("site_settings").upsert({ key: "policies", value: c.value, updated_at: new Date().toISOString() })

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { cleanZone, type ZoneInput } from "@/lib/shipping"
 import { toZone } from "@/lib/shipping-source"
-import { adminClient } from "@/lib/admin-auth"
+import { adminClient, noAccess } from "@/lib/admin-auth"
 import { isLive } from "@/lib/supabase/env"
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string }
@@ -26,8 +26,8 @@ async function others(db: NonNullable<Awaited<ReturnType<typeof admin>>>, id: st
 /** Creates a zone (id = null) or updates one. */
 export async function saveZone(id: string | null, input: ZoneInput): Promise<Result<{ id: string }>> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("settings.manage")
+  if (!db) return { ok: false, error: await noAccess("settings.manage") }
   const o = await others(db, id)
   if ("error" in o && o.error) return { ok: false, error: friendly(o.error) }
   const c = cleanZone(input, o.zones ?? [])
@@ -48,8 +48,8 @@ export async function saveZone(id: string | null, input: ZoneInput): Promise<Res
 
 export async function setZoneActive(id: string, active: boolean): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("settings.manage")
+  if (!db) return { ok: false, error: await noAccess("settings.manage") }
   const { error } = await db.from("shipping_zones").update({ active }).eq("id", id)
   if (error) return { ok: false, error: friendly(error) }
   refresh()
@@ -58,8 +58,8 @@ export async function setZoneActive(id: string, active: boolean): Promise<Result
 
 export async function deleteZone(id: string): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("settings.manage")
+  if (!db) return { ok: false, error: await noAccess("settings.manage") }
   const { error } = await db.from("shipping_zones").delete().eq("id", id)
   if (error) return { ok: false, error: friendly(error) }
   refresh()

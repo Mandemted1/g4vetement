@@ -52,7 +52,7 @@ update products set stock = stock where size_stock = '{}'::jsonb;
 create or replace function adjust_stock(p_product text, p_size text, p_delta integer) returns void
 language plpgsql security definer set search_path = public as $$
 begin
-  if auth.uid() is not null and not is_admin() then raise exception 'Not allowed'; end if;
+  if auth.uid() is not null and not (can_do('orders.manage') or can_do('products.manage')) then raise exception 'Not allowed'; end if;
   update products
   set size_stock = jsonb_set(size_stock, array[p_size], to_jsonb(greatest(0, coalesce((size_stock ->> p_size)::integer, 0) + p_delta)))
   where id = p_product and sizes ? p_size;

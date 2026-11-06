@@ -9,12 +9,57 @@ create table if not exists admins (
 );
 alter table admins enable row level security;
 
+-- Each team member has a role (see src/lib/permissions.ts). Everyone already on the list is an owner.
+alter table admins add column if not exists role text not null default 'owner';
+alter table admins drop constraint if exists admins_role_check;
+alter table admins add constraint admins_role_check check (role in ('owner', 'manager', 'fulfilment', 'viewer'));
+
+-- What each role may do. MUST match MATRIX in src/lib/permissions.ts (scripts/test-permissions.mts compares them).
+create or replace function role_can(p_role text, p_cap text) returns boolean
+language sql immutable as $$
+  select case p_role
+    when 'owner' then true
+    when 'manager' then p_cap in ('orders.manage', 'products.manage', 'marketing.manage', 'giftcards.manage', 'reviews.manage', 'analytics.view', 'data.export')
+    when 'fulfilment' then p_cap in ('orders.manage')
+    when 'viewer' then p_cap in ('analytics.view')
+    else false
+  end;
+$$;
+
 create or replace function is_admin() returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (select 1 from public.admins where user_id = auth.uid());
 $$;
 revoke all on function is_admin() from public;
 grant execute on function is_admin() to anon, authenticated, service_role;
+
+-- The signed-in person's team role (null if they aren't on the team), and whether they may do something.
+create or replace function staff_role() returns text
+language sql stable security definer set search_path = public as $$
+  select role from public.admins where user_id = auth.uid();
+$$;
+revoke all on function staff_role() from public;
+grant execute on function staff_role() to anon, authenticated, service_role;
+
+create or replace function can_do(p_cap text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce(role_can((select role from public.admins where user_id = auth.uid()), p_cap), false);
+$$;
+revoke all on function can_do(text) from public;
+grant execute on function can_do(text) to anon, authenticated, service_role;
+
+-- The store can never be left without an owner.
+create or replace function protect_last_owner() returns trigger language plpgsql as $$
+begin
+  if old.role = 'owner' and (tg_op = 'DELETE' or new.role <> 'owner') then
+    if not exists (select 1 from public.admins where role = 'owner' and user_id <> old.user_id) then
+      raise exception 'There must always be at least one owner';
+    end if;
+  end if;
+  return case when tg_op = 'DELETE' then old else new end;
+end $$;
+drop trigger if exists admins_keep_owner on admins;
+create trigger admins_keep_owner before update or delete on admins for each row execute function protect_last_owner();
 
 create sequence if not exists order_number_seq start 2001;
 create sequence if not exists customer_seq start 1000;
@@ -92,16 +137,22 @@ drop policy if exists "public read active products" on products;
 create policy "public read active products" on products for select to anon, authenticated using (active or is_admin());
 
 drop policy if exists "admin all products" on products;
-create policy "admin all products" on products for all to authenticated using (is_admin()) with check (is_admin());
+create policy "admin all products" on products for all to authenticated using (can_do('products.manage')) with check (can_do('products.manage'));
 
 drop policy if exists "admin all customers" on customers;
-create policy "admin all customers" on customers for all to authenticated using (is_admin()) with check (is_admin());
+create policy "admin all customers" on customers for all to authenticated using (can_do('orders.manage')) with check (can_do('orders.manage'));
+drop policy if exists "staff read customers" on customers;
+create policy "staff read customers" on customers for select to authenticated using (is_admin());
 
 drop policy if exists "admin all orders" on orders;
-create policy "admin all orders" on orders for all to authenticated using (is_admin()) with check (is_admin());
+create policy "admin all orders" on orders for all to authenticated using (can_do('orders.manage')) with check (can_do('orders.manage'));
+drop policy if exists "staff read orders" on orders;
+create policy "staff read orders" on orders for select to authenticated using (is_admin());
 
 drop policy if exists "admin all order_items" on order_items;
-create policy "admin all order_items" on order_items for all to authenticated using (is_admin()) with check (is_admin());
+create policy "admin all order_items" on order_items for all to authenticated using (can_do('orders.manage')) with check (can_do('orders.manage'));
+drop policy if exists "staff read order_items" on order_items;
+create policy "staff read order_items" on order_items for select to authenticated using (is_admin());
 
 -- (The checkout functions price_order / quote_order / place_order are defined once, in 008_shipping.sql, so re-running migrations never swaps in an older version.)
 
@@ -118,4 +169,4 @@ insert into storage.buckets (id, name, public) values ('products', 'products', t
 drop policy if exists "public read product photos" on storage.objects;
 create policy "public read product photos" on storage.objects for select using (bucket_id = 'products');
 drop policy if exists "admin write product photos" on storage.objects;
-create policy "admin write product photos" on storage.objects for all to authenticated using (bucket_id = 'products' and is_admin()) with check (bucket_id = 'products' and is_admin());
+create policy "admin write product photos" on storage.objects for all to authenticated using (bucket_id = 'products' and can_do('products.manage')) with check (bucket_id = 'products' and can_do('products.manage'));

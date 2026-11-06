@@ -137,15 +137,15 @@ function ColorsField({ colors, onChange }: { colors: Colour[]; onChange: (c: Col
 }
 
 /** `product` = edit, `null` = create new. Mount with a key so state resets between products. */
-export function ProductEditor({ product, categories, open, onClose }: { product: Product | null; categories: { name: string; department: CategoryDepartment }[]; open: boolean; onClose: () => void }) {
+export function ProductEditor({ product, categories, open, onClose, readOnly = false }: { product: Product | null; categories: { name: string; department: CategoryDepartment }[]; open: boolean; onClose: () => void; readOnly?: boolean }) {
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">{open && <Form key={product?.id ?? "new"} product={product} categories={categories} onClose={onClose} />}</SheetContent>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">{open && <Form key={product?.id ?? "new"} product={product} categories={categories} onClose={onClose} readOnly={readOnly} />}</SheetContent>
     </Sheet>
   )
 }
 
-function Form({ product, categories, onClose }: { product: Product | null; categories: { name: string; department: CategoryDepartment }[]; onClose: () => void }) {
+function Form({ product, categories, onClose, readOnly }: { product: Product | null; categories: { name: string; department: CategoryDepartment }[]; onClose: () => void; readOnly: boolean }) {
   const router = useRouter()
   const [f, setF] = useState<ProductInput>(product ? fromProduct(product) : blank)
   const [sizes, setSizes] = useState((product ? product.sizes : blank.sizes).join(", "))
@@ -202,6 +202,8 @@ function Form({ product, categories, onClose }: { product: Product | null; categ
         <SheetTitle>{product ? product.name : "New product"}</SheetTitle>
         <SheetDescription>{product ? `${product.sku} · changes go live on the store immediately.` : "Fill in the details, then add photos."}</SheetDescription>
       </SheetHeader>
+      {readOnly && <p className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm">View only. Your role can look at products but not change them.</p>}
+      <fieldset disabled={readOnly} className="m-0 flex min-w-0 flex-col gap-5 border-0 p-0">
 
       <div className="flex flex-col gap-2">
         <span className="text-sm">Photos <span className="text-muted-foreground">(first is the main image)</span></span>
@@ -297,9 +299,11 @@ function Form({ product, categories, onClose }: { product: Product | null; categ
         Visible on the store
       </label>
 
+      </fieldset>
+
       {err && <p className="rounded-md bg-negative/10 px-3 py-2 text-sm text-negative">{err}</p>}
       <div className="flex gap-2">
-        <Button onClick={save} disabled={saving || uploading} className="flex-1">{saving ? "Saving…" : product ? "Save changes" : "Create product"}</Button>
+        {!readOnly && <Button onClick={save} disabled={saving || uploading} className="flex-1">{saving ? "Saving…" : product ? "Save changes" : "Create product"}</Button>}
         <Button variant="outline" onClick={onClose}>Cancel</Button>
       </div>
     </div>

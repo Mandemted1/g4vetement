@@ -27,7 +27,7 @@ create policy "customers read their own reviews" on reviews for select to authen
 drop policy if exists "customers delete their own reviews" on reviews;
 create policy "customers delete their own reviews" on reviews for delete to authenticated using (user_id = auth.uid());
 drop policy if exists "admin manage reviews" on reviews;
-create policy "admin manage reviews" on reviews for all to authenticated using (is_admin()) with check (is_admin());
+create policy "admin manage reviews" on reviews for all to authenticated using (can_do('reviews.manage')) with check (can_do('reviews.manage'));
 -- (no insert/update policy for customers on purpose: they go through submit_review())
 
 -- Nobody but the database needs to see WHO wrote a review (only the display name is shown), so the user id column is not readable

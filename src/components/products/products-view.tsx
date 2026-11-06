@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { ProductThumb } from "@/components/product-thumb"
 import { ProductEditor } from "@/components/products/product-editor"
 import { useAdmin } from "@/components/admin-data"
+import { useStaff } from "@/components/staff-context"
 import { isBooked, stockState, type Product } from "@/lib/data"
 import { SECTIONS, departmentLabel, inSection, type Section } from "@/lib/departments"
 import { searchProducts } from "@/lib/search"
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils"
 
 export function ProductsView() {
   const { products, orders, categories: managed } = useAdmin()
+  const canEdit = useStaff().can("products.manage")
   const [q, setQ] = useState("")
   const [cat, setCat] = useState("All")
   const [dept, setDept] = useState<"all" | Section>("all")
@@ -60,7 +62,7 @@ export function ProductsView() {
           <h1 className="text-2xl font-semibold tracking-tight">Products</h1>
           <p className="mt-1 text-sm text-muted-foreground">{products.length} products · click a row to edit. Sales are all-time, net of discounts.</p>
         </div>
-        <Button onClick={() => setCreating(true)}><PlusIcon /> New product</Button>
+        {canEdit && <Button onClick={() => setCreating(true)}><PlusIcon /> New product</Button>}
       </div>
       <Card className="rise" style={{ "--i": 1 } as React.CSSProperties}>
         <CardContent className="flex flex-col gap-4">
@@ -136,7 +138,7 @@ export function ProductsView() {
         </CardContent>
       </Card>
 
-      <ProductEditor product={editing} categories={options} open={!!editing || creating} onClose={() => { setEditing(null); setCreating(false) }} />
+      <ProductEditor product={editing} categories={options} open={!!editing || creating} onClose={() => { setEditing(null); setCreating(false) }} readOnly={!canEdit} />
     </div>
   )
 }

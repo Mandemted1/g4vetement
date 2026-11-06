@@ -30,9 +30,9 @@ create index if not exists gift_ledger_order_idx on gift_card_ledger (order_id) 
 alter table gift_cards enable row level security;
 alter table gift_card_ledger enable row level security;
 drop policy if exists "admin manage gift cards" on gift_cards;
-create policy "admin manage gift cards" on gift_cards for all to authenticated using (is_admin()) with check (is_admin());
+create policy "admin manage gift cards" on gift_cards for all to authenticated using (can_do('giftcards.manage')) with check (can_do('giftcards.manage'));
 drop policy if exists "admin read gift ledger" on gift_card_ledger;
-create policy "admin read gift ledger" on gift_card_ledger for select to authenticated using (is_admin());
+create policy "admin read gift ledger" on gift_card_ledger for select to authenticated using (can_do('giftcards.manage'));
 
 alter table orders add column if not exists gift_code text;
 alter table orders add column if not exists gift_amount integer not null default 0;
@@ -42,7 +42,7 @@ create or replace function issue_gift_card(p_code text, p_amount integer, p_note
 language plpgsql security definer set search_path = public as $$
 declare v_id uuid; v_code text := upper(regexp_replace(coalesce(p_code, ''), '\s', '', 'g'));
 begin
-  if auth.uid() is not null and not is_admin() then raise exception 'Not allowed'; end if;
+  if auth.uid() is not null and not can_do('giftcards.manage') then raise exception 'Not allowed'; end if;
   if length(v_code) < 8 or length(v_code) > 32 then raise exception 'A gift card code must be 8 to 32 characters'; end if;
   if p_amount is null or p_amount < 1 or p_amount > 10000 then raise exception 'The amount must be between $1 and $10,000'; end if;
   if p_expires is not null and p_expires <= now() then raise exception 'The expiry date must be in the future'; end if;
@@ -58,7 +58,7 @@ create or replace function adjust_gift_card(p_card uuid, p_delta integer, p_note
 language plpgsql security definer set search_path = public as $$
 declare v_balance integer;
 begin
-  if auth.uid() is not null and not is_admin() then raise exception 'Not allowed'; end if;
+  if auth.uid() is not null and not can_do('giftcards.manage') then raise exception 'Not allowed'; end if;
   if p_delta is null or p_delta = 0 or abs(p_delta) > 10000 then raise exception 'Enter an amount to add or take off (up to $10,000)'; end if;
   select balance into v_balance from gift_cards where id = p_card for update;
   if not found then raise exception 'Gift card not found'; end if;
@@ -75,7 +75,7 @@ create or replace function restore_gift_card(p_order text) returns integer
 language plpgsql security definer set search_path = public as $$
 declare o orders%rowtype; c gift_cards%rowtype;
 begin
-  if auth.uid() is not null and not is_admin() then raise exception 'Not allowed'; end if;
+  if auth.uid() is not null and not (can_do('orders.manage') or can_do('giftcards.manage')) then raise exception 'Not allowed'; end if;
   select * into o from orders where id = p_order;
   if not found or coalesce(o.gift_amount, 0) <= 0 or o.gift_code is null then return 0; end if;
   if exists (select 1 from gift_card_ledger where order_id = p_order and kind = 'refund') then return 0; end if;

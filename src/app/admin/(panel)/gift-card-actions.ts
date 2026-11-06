@@ -2,7 +2,7 @@
 
 import { randomInt } from "node:crypto"
 import { revalidatePath } from "next/cache"
-import { adminClient } from "@/lib/admin-auth"
+import { adminClient, noAccess } from "@/lib/admin-auth"
 import { CODE_ALPHABET, formatCode, normalizeCode } from "@/lib/gift-card-types"
 import { isLive } from "@/lib/supabase/env"
 
@@ -30,8 +30,8 @@ export interface NewGiftCard {
 
 export async function createGiftCard(input: NewGiftCard): Promise<Result<{ code: string }>> {
   if (!isLive) return DEMO
-  const db = await adminClient()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await adminClient("giftcards.manage")
+  if (!db) return { ok: false, error: await noAccess("giftcards.manage") }
   if (!Number.isInteger(input.amount) || input.amount < 1 || input.amount > 10_000) return { ok: false, error: "The amount must be a whole number of dollars, from $1 to $10,000." }
   const recipient = input.recipient.trim()
   if (recipient && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(recipient)) return { ok: false, error: "That recipient email doesn't look right (or leave it empty)." }
@@ -60,8 +60,8 @@ export async function createGiftCard(input: NewGiftCard): Promise<Result<{ code:
 /** Adds (positive) or takes off (negative) money, with a note for the ledger. */
 export async function adjustGiftCard(id: string, delta: number, note: string): Promise<Result<{ balance: number }>> {
   if (!isLive) return DEMO
-  const db = await adminClient()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await adminClient("giftcards.manage")
+  if (!db) return { ok: false, error: await noAccess("giftcards.manage") }
   if (!Number.isInteger(delta) || delta === 0) return { ok: false, error: "Enter a whole number of dollars to add or take off." }
   const { data, error } = await db.rpc("adjust_gift_card", { p_card: id, p_delta: delta, p_note: note.trim().slice(0, 200) })
   if (error) return { ok: false, error: friendly(error) }
@@ -71,8 +71,8 @@ export async function adjustGiftCard(id: string, delta: number, note: string): P
 
 export async function setGiftCardActive(id: string, active: boolean): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await adminClient()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await adminClient("giftcards.manage")
+  if (!db) return { ok: false, error: await noAccess("giftcards.manage") }
   const { error } = await db.from("gift_cards").update({ active }).eq("id", id)
   if (error) return { ok: false, error: friendly(error) }
   refresh()

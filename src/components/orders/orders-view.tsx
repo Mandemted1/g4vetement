@@ -15,6 +15,7 @@ import { StatusBadge, statusLabel } from "@/components/status-badge"
 import { Pager } from "@/components/pager"
 import { type Order, type OrderStatus } from "@/lib/data"
 import { useAdmin } from "@/components/admin-data"
+import { useStaff } from "@/components/staff-context"
 import { saveTracking, setOrderStatus, shipOrder, type TrackingInput } from "@/app/admin/actions"
 import { TrackingForm } from "@/components/orders/tracking-form"
 import { countryName } from "@/lib/countries"
@@ -130,6 +131,7 @@ const NEXT: Partial<Record<OrderStatus, OrderStatus>> = { pending: "processing",
 
 function OrderDetail({ o }: { o: Order }) {
   const { customerById, productById } = useAdmin()
+  const canManage = useStaff().can("orders.manage")
   const router = useRouter()
   const [busy, start] = useTransition()
   const [err, setErr] = useState("")
@@ -166,7 +168,7 @@ function OrderDetail({ o }: { o: Order }) {
         <SheetDescription>{dateLabel(o.date)} at {timeLabel(o.date)} · {o.channel}</SheetDescription>
       </SheetHeader>
       <div className="flex items-center justify-between"><StatusBadge status={o.status} /><span className="text-xl font-semibold tabular">{money(o.total)}</span></div>
-      {!terminal && (
+      {!terminal && canManage && (
         <div className="flex flex-col gap-2">
           {o.status === "processing" && tracking !== "ship" && <Button disabled={busy} onClick={() => { setErr(""); setTracking("ship") }}>Mark as shipped…</Button>}
           {next && o.status !== "processing" && <Button disabled={busy} onClick={() => change(next)}>{busy ? "Saving…" : `Mark as ${statusLabel[next].toLowerCase()}`}</Button>}
@@ -188,6 +190,7 @@ function OrderDetail({ o }: { o: Order }) {
         </div>
       )}
       {err && tracking === null && <p className="text-xs text-negative">{err}</p>}
+      {!canManage && !terminal && <p className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs">View only. Your role can look at orders but not change them.</p>}
       {hasShipped && (
         <div className="flex flex-col gap-2 text-sm">
           <h3 className="font-medium">Tracking</h3>
@@ -211,12 +214,12 @@ function OrderDetail({ o }: { o: Order }) {
                   <span className="block truncate font-mono">{o.tracking.number}</span>
                 )}
               </div>
-              <Button variant="outline" size="sm" onClick={() => { setErr(""); setTracking("edit") }}>Edit</Button>
+              {canManage && <Button variant="outline" size="sm" onClick={() => { setErr(""); setTracking("edit") }}>Edit</Button>}
             </div>
           ) : (
             <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed px-3 py-2.5">
               <span className="text-muted-foreground">Shipped without a tracking number.</span>
-              <Button variant="outline" size="sm" onClick={() => { setErr(""); setTracking("edit") }}>Add tracking</Button>
+              {canManage && <Button variant="outline" size="sm" onClick={() => { setErr(""); setTracking("edit") }}>Add tracking</Button>}
             </div>
           )}
         </div>

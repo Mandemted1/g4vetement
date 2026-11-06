@@ -1,3 +1,4 @@
+import { requireCap } from "@/lib/auth"
 import { notFound } from "next/navigation"
 import { CampaignEditor } from "@/components/emails/campaign-editor"
 import { blankCampaign, getCampaign } from "@/lib/email/admin-data"
@@ -9,6 +10,7 @@ export const metadata = { title: "Campaign" }
 export const maxDuration = 60 // sending to a large list can take a while
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  await requireCap("marketing.manage")
   const { id } = await params
   const item = id === "new" ? blankCampaign() : await getCampaign(id)
   if (!item) notFound()

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { deliverCampaign, sendTestEmail } from "@/lib/email/service"
 import type { EmailDoc } from "@/lib/email/types"
-import { adminClient } from "@/lib/admin-auth"
+import { adminClient, noAccess } from "@/lib/admin-auth"
 import { isLive } from "@/lib/supabase/env"
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string }
@@ -15,8 +15,8 @@ const missing = (e: { message: string }) =>
 
 export async function saveTemplate(key: string, v: { subject: string; preheader: string; doc: EmailDoc; enabled: boolean; name: string; description: string }): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("marketing.manage")
+  if (!db) return { ok: false, error: await noAccess("marketing.manage") }
   if (!v.subject.trim()) return { ok: false, error: "Add a subject line." }
   const { error } = await db.from("email_templates").upsert({ key, name: v.name, description: v.description, subject: v.subject, preheader: v.preheader, doc: v.doc, enabled: v.enabled, updated_at: new Date().toISOString() })
   if (error) return { ok: false, error: missing(error) }
@@ -26,7 +26,7 @@ export async function saveTemplate(key: string, v: { subject: string; preheader:
 
 export async function sendTest(to: string, doc: EmailDoc, subject: string, preheader: string, kind: "marketing" | "transactional"): Promise<Result> {
   if (!isLive) return DEMO
-  if (!(await admin())) return { ok: false, error: "Please sign in again." }
+  if (!(await admin("marketing.manage"))) return { ok: false, error: await noAccess("marketing.manage") }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return { ok: false, error: "Enter a valid email address." }
   const r = await sendTestEmail(to, doc, subject, preheader, kind)
   return r.ok ? { ok: true } : { ok: false, error: r.error }
@@ -44,8 +44,8 @@ export interface CampaignInput {
 
 export async function saveCampaign(v: CampaignInput): Promise<Result<{ id: string }>> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("marketing.manage")
+  if (!db) return { ok: false, error: await noAccess("marketing.manage") }
   const row = { name: v.name.trim() || "Untitled campaign", subject: v.subject, preheader: v.preheader, doc: v.doc, audience: v.audience, scheduled_at: v.scheduledAt || null, status: v.scheduledAt ? "scheduled" : "draft", updated_at: new Date().toISOString() }
   if (v.id) {
     const { data: cur } = await db.from("campaigns").select("status").eq("id", v.id).single()
@@ -63,7 +63,7 @@ export async function saveCampaign(v: CampaignInput): Promise<Result<{ id: strin
 
 export async function sendCampaignNow(id: string): Promise<Result<{ sent: number; failed: number }>> {
   if (!isLive) return DEMO
-  if (!(await admin())) return { ok: false, error: "Please sign in again." }
+  if (!(await admin("marketing.manage"))) return { ok: false, error: await noAccess("marketing.manage") }
   const r = await deliverCampaign(id)
   revalidatePath("/admin/campaigns")
   return r.ok ? { ok: true, sent: r.sent, failed: r.failed } : { ok: false, error: r.error }
@@ -71,8 +71,8 @@ export async function sendCampaignNow(id: string): Promise<Result<{ sent: number
 
 export async function deleteCampaign(id: string): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("marketing.manage")
+  if (!db) return { ok: false, error: await noAccess("marketing.manage") }
   const { error } = await db.from("campaigns").delete().eq("id", id)
   if (error) return { ok: false, error: error.message }
   revalidatePath("/admin/campaigns")

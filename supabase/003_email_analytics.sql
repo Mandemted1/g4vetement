@@ -84,13 +84,13 @@ alter table email_messages  enable row level security;
 alter table visits          enable row level security;
 
 drop policy if exists "admin all templates" on email_templates;
-create policy "admin all templates" on email_templates for all to authenticated using (is_admin()) with check (is_admin());
+create policy "admin all templates" on email_templates for all to authenticated using (can_do('marketing.manage')) with check (can_do('marketing.manage'));
 drop policy if exists "admin all campaigns" on campaigns;
-create policy "admin all campaigns" on campaigns for all to authenticated using (is_admin()) with check (is_admin());
+create policy "admin all campaigns" on campaigns for all to authenticated using (can_do('marketing.manage')) with check (can_do('marketing.manage'));
 drop policy if exists "admin read messages" on email_messages;
-create policy "admin read messages" on email_messages for select to authenticated using (is_admin());
+create policy "admin read messages" on email_messages for select to authenticated using (can_do('marketing.manage'));
 drop policy if exists "admin read visits" on visits;
-create policy "admin read visits" on visits for select to authenticated using (is_admin());
+create policy "admin read visits" on visits for select to authenticated using (can_do('analytics.view'));
 
 -- ---------- Analytics queries (run as the signed-in admin) ----------
 create or replace function analytics_overview(p_days integer default 30)

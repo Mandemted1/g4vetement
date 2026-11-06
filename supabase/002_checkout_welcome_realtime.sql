@@ -17,7 +17,7 @@ drop policy if exists "anyone can subscribe" on subscribers;
 create policy "anyone can subscribe" on subscribers for insert to anon, authenticated with check (position('@' in email) > 1);
 
 drop policy if exists "admin manage subscribers" on subscribers;
-create policy "admin manage subscribers" on subscribers for all to authenticated using (is_admin()) with check (is_admin());
+create policy "admin manage subscribers" on subscribers for all to authenticated using (can_do('marketing.manage')) with check (can_do('marketing.manage'));
 
 -- ---------- Live order alerts (the admin listens for new orders) ----------
 do $$ begin

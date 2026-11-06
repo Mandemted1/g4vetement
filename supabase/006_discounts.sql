@@ -50,9 +50,9 @@ alter table order_items add column if not exists list_price integer;
 alter table discount_codes enable row level security;
 alter table sales          enable row level security;
 drop policy if exists "admin manage discount codes" on discount_codes;
-create policy "admin manage discount codes" on discount_codes for all to authenticated using (is_admin()) with check (is_admin());
+create policy "admin manage discount codes" on discount_codes for all to authenticated using (can_do('marketing.manage')) with check (can_do('marketing.manage'));
 drop policy if exists "admin manage sales" on sales;
-create policy "admin manage sales" on sales for all to authenticated using (is_admin()) with check (is_admin());
+create policy "admin manage sales" on sales for all to authenticated using (can_do('marketing.manage')) with check (can_do('marketing.manage'));
 
 -- The welcome popup's code, now a normal editable code.
 insert into discount_codes (code, kind, value, min_spend, first_order_only, note)

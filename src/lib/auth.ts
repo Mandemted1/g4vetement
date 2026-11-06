@@ -1,5 +1,7 @@
 import "server-only"
 import { redirect } from "next/navigation"
+import { currentStaff, type Staff } from "./admin-auth"
+import { roleCan, type Cap } from "./permissions"
 import { sessionClient } from "./supabase/clients"
 import { isLive } from "./supabase/env"
 
@@ -17,4 +19,27 @@ export async function requireAdmin() {
   const { data: yes } = await db.rpc("is_admin")
   if (yes !== true) redirect("/admin/login?denied=1")
   return data.user
+}
+
+/**
+ * Pages call this: signed in and on the team, or sent to the login. Returns the person and their role
+ * (null in demo mode, where there are no accounts).
+ */
+export async function requireStaff(): Promise<Staff | null> {
+  if (!isLive) {
+    if (process.env.VERCEL_ENV === "production") redirect("/admin/login")
+    return null
+  }
+  const { data } = await (await sessionClient()).auth.getUser()
+  if (!data.user) redirect("/admin/login")
+  const staff = await currentStaff()
+  if (!staff) redirect("/admin/login?denied=1")
+  return staff
+}
+
+/** For pages only some roles may open: anyone else lands on the dashboard with a notice. */
+export async function requireCap(cap: Cap): Promise<Staff | null> {
+  const staff = await requireStaff()
+  if (staff && !roleCan(staff.role, cap)) redirect("/admin?restricted=1")
+  return staff
 }

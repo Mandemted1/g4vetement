@@ -9,12 +9,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { createCategory, deleteCategory, moveCategory, updateCategory } from "@/app/admin/(panel)/category-actions"
 import { useAdmin } from "@/components/admin-data"
+import { useStaff } from "@/components/staff-context"
 import type { Category } from "@/lib/data"
 import { CATEGORY_DEPARTMENT_OPTIONS, categoryDepartmentLabel, type CategoryDepartment } from "@/lib/departments"
 import { cn } from "@/lib/utils"
 
 export function CategoriesView() {
   const { categories, products, mode } = useAdmin()
+  const canEdit = useStaff().can("products.manage")
   const router = useRouter()
   const [pending, start] = useTransition()
   const [error, setError] = useState("")
@@ -82,6 +84,8 @@ export function CategoriesView() {
           <CardDescription>Use the arrows to set the order shown in the store menu and filters. A hidden category no longer shows as a filter or in the menu; its products stay visible under &ldquo;All&rdquo; (hide a product itself from its page).</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          {!canEdit && <p className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm">View only. Your role can look at categories but not change them.</p>}
+          <fieldset disabled={!canEdit} className="contents">
           <form
             className="flex gap-2"
             onSubmit={(e) => {
@@ -172,6 +176,7 @@ export function CategoriesView() {
             })}
             {categories.length === 0 && <li className="px-3 py-10 text-center text-sm text-muted-foreground"><XIcon className="mx-auto mb-2 size-5" />No categories yet. Add your first one above.</li>}
           </ul>
+          </fieldset>
         </CardContent>
       </Card>
     </div>

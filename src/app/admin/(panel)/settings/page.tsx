@@ -1,3 +1,4 @@
+import { requireCap } from "@/lib/auth"
 import { LoginSettingsCard } from "@/components/settings/settings-view"
 import { PoliciesCard } from "@/components/settings/policies-card"
 import { NotificationsCard } from "@/components/settings/notifications-card"
@@ -9,6 +10,7 @@ import { getAdminZones } from "@/lib/shipping-source"
 export const metadata = { title: "Settings" }
 
 export default async function Page() {
+  await requireCap("settings.manage")
   const [store, policies, login, shipping, alerts] = await Promise.all([getStoreSettings(), getPolicies(), getLoginSettings(), getAdminZones(), getAlertSettings()])
   return (
     <div className="flex flex-col gap-6">

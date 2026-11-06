@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { cleanCode, cleanSale, type CodeInput, type SaleInput } from "@/lib/discount-validate"
-import { adminClient } from "@/lib/admin-auth"
+import { adminClient, noAccess } from "@/lib/admin-auth"
 import { isLive } from "@/lib/supabase/env"
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string }
@@ -25,8 +25,8 @@ const saleRow = (s: SaleInput) => ({ name: s.name, percent: s.percent, scope: s.
 
 export async function createCode(input: CodeInput): Promise<Result<{ id: string }>> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("marketing.manage")
+  if (!db) return { ok: false, error: await noAccess("marketing.manage") }
   const c = cleanCode(input)
   if (!c.ok) return c
   const { data, error } = await db.from("discount_codes").insert(codeRow(c.value)).select("id").single()
@@ -37,8 +37,8 @@ export async function createCode(input: CodeInput): Promise<Result<{ id: string 
 
 export async function updateCode(id: string, input: CodeInput): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("marketing.manage")
+  if (!db) return { ok: false, error: await noAccess("marketing.manage") }
   const c = cleanCode(input)
   if (!c.ok) return c
   const { error } = await db.from("discount_codes").update(codeRow(c.value)).eq("id", id)
@@ -49,8 +49,8 @@ export async function updateCode(id: string, input: CodeInput): Promise<Result> 
 
 export async function setCodeActive(id: string, active: boolean): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("marketing.manage")
+  if (!db) return { ok: false, error: await noAccess("marketing.manage") }
   const { error } = await db.from("discount_codes").update({ active }).eq("id", id)
   if (error) return { ok: false, error: friendly(error) }
   refresh()
@@ -60,8 +60,8 @@ export async function setCodeActive(id: string, active: boolean): Promise<Result
 /** A code that has been used keeps its history: switch it off instead of deleting. */
 export async function deleteCode(id: string): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("marketing.manage")
+  if (!db) return { ok: false, error: await noAccess("marketing.manage") }
   const { data: row } = await db.from("discount_codes").select("code").eq("id", id).single()
   if (!row) return { ok: false, error: "Code not found." }
   const { count } = await db.from("orders").select("id", { count: "exact", head: true }).eq("discount_code", row.code)
@@ -74,8 +74,8 @@ export async function deleteCode(id: string): Promise<Result> {
 
 export async function createSale(input: SaleInput): Promise<Result<{ id: string }>> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("marketing.manage")
+  if (!db) return { ok: false, error: await noAccess("marketing.manage") }
   const s = cleanSale(input)
   if (!s.ok) return s
   const { data, error } = await db.from("sales").insert(saleRow(s.value)).select("id").single()
@@ -86,8 +86,8 @@ export async function createSale(input: SaleInput): Promise<Result<{ id: string 
 
 export async function updateSale(id: string, input: SaleInput): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("marketing.manage")
+  if (!db) return { ok: false, error: await noAccess("marketing.manage") }
   const s = cleanSale(input)
   if (!s.ok) return s
   const { error } = await db.from("sales").update(saleRow(s.value)).eq("id", id)
@@ -98,8 +98,8 @@ export async function updateSale(id: string, input: SaleInput): Promise<Result> 
 
 export async function setSaleActive(id: string, active: boolean): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("marketing.manage")
+  if (!db) return { ok: false, error: await noAccess("marketing.manage") }
   const { error } = await db.from("sales").update({ active }).eq("id", id)
   if (error) return { ok: false, error: friendly(error) }
   refresh()
@@ -109,8 +109,8 @@ export async function setSaleActive(id: string, active: boolean): Promise<Result
 /** Past orders keep the sale price they were charged, so deleting a sale never changes history. */
 export async function deleteSale(id: string): Promise<Result> {
   if (!isLive) return DEMO
-  const db = await admin()
-  if (!db) return { ok: false, error: "Please sign in again." }
+  const db = await admin("marketing.manage")
+  if (!db) return { ok: false, error: await noAccess("marketing.manage") }
   const { error } = await db.from("sales").delete().eq("id", id)
   if (error) return { ok: false, error: friendly(error) }
   refresh()

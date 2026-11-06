@@ -4,14 +4,16 @@ import { DemoBanner, LiveOrders } from "@/components/admin-live"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { requireAdmin } from "@/lib/auth"
+import { StaffProvider } from "@/components/staff-context"
+import { requireStaff } from "@/lib/auth"
 import { getAdminData } from "@/lib/source"
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  await requireAdmin()
+  const staff = await requireStaff()
   const data = await getAdminData()
   return (
     <AdminDataProvider data={data}>
+      <StaffProvider role={staff?.role ?? "owner"} email={staff?.email ?? ""}>
       <TooltipProvider>
         <SidebarProvider>
           <AppSidebar />
@@ -22,6 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </SidebarInset>
         </SidebarProvider>
       </TooltipProvider>
+      </StaffProvider>
       <LiveOrders />
     </AdminDataProvider>
   )
