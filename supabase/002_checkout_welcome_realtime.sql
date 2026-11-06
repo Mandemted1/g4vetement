@@ -3,6 +3,7 @@
 
 -- ---------- Checkout v2 (adds an optional discount code) ----------
 drop function if exists place_order(text, text, text, text, jsonb);
+drop function if exists place_order(text, text, text, text, jsonb, text);  -- so re-running after later versions changed the return type still works
 
 create or replace function place_order(
   p_name text, p_email text, p_city text, p_state text, p_items jsonb, p_code text default null

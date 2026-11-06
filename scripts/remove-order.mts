@@ -14,15 +14,14 @@ if (!url || !key || ids.length === 0) {
 const db = createClient(url, key, { auth: { persistSession: false } })
 
 for (const id of ids) {
-  const { data: o } = await db.from("orders").select("id, status, customer_id, order_items(product_id, qty)").eq("id", id).maybeSingle()
+  const { data: o } = await db.from("orders").select("id, status, customer_id, order_items(product_id, size, qty)").eq("id", id).maybeSingle()
   if (!o) {
     console.log(`– ${id}: not found`)
     continue
   }
   if (o.status !== "cancelled") {
-    for (const it of o.order_items as { product_id: string; qty: number }[]) {
-      const { data: p } = await db.from("products").select("stock").eq("id", it.product_id).single()
-      if (p) await db.from("products").update({ stock: p.stock + it.qty }).eq("id", it.product_id)
+    for (const it of o.order_items as { product_id: string; size: string; qty: number }[]) {
+      await db.rpc("adjust_stock", { p_product: it.product_id, p_size: it.size, p_delta: it.qty })
     }
   }
   await db.from("orders").delete().eq("id", id)

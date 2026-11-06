@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { track } from "@/lib/track"
 import { AnimatePresence, motion, useAnimationControls } from "motion/react"
-import { isSoldOut, onSale, pad, price, unitPrice, type ShopProduct } from "@/lib/store"
+import { isSoldOut, onSale, pad, price, sizeLeft, unitPrice, type ShopProduct } from "@/lib/store"
 import { BackLink } from "./back-link"
 import { PriceTag } from "./price-tag"
 import { useCart } from "./cart"
@@ -19,7 +19,9 @@ export function ProductView({ product: p, related }: { product: ShopProduct; rel
   const shake = useAnimationControls()
   const btn = useRef<HTMLButtonElement>(null)
   const sold = isSoldOut(p)
-  const low = !sold && p.stock <= p.reorderLevel
+  const left = size ? sizeLeft(p, size) : null
+  // once a size is chosen, the warning is about that size; before that, about the whole product
+  const warn = sold ? null : left !== null ? (left <= 3 ? `Only ${left} left in ${size}` : null) : p.stock <= p.reorderLevel ? `Only ${p.stock} left` : null
   const photos = p.images.length
 
   useEffect(() => {
@@ -79,11 +81,14 @@ export function ProductView({ product: p, related }: { product: ShopProduct; rel
             <motion.div animate={shake} className="mt-7">
               <div className="label flex justify-between"><span>Size</span><span className="text-[var(--mute)]">{size ?? "Select"}</span></div>
               <div className="mt-3 grid grid-cols-5 gap-px bg-[var(--line)]" role="radiogroup" aria-label="Size">
-                {p.sizes.map((s) => (
-                  <button key={s} role="radio" aria-checked={size === s} disabled={sold} onClick={() => setSize(s)} data-cursor="SELECT" className={`label py-3.5 transition-colors duration-300 disabled:opacity-40 ${size === s ? "bg-[var(--ink)] text-[var(--paper)]" : "bg-[var(--paper)] hover:bg-[var(--paper-2)]"} ${p.sizes.length === 1 ? "col-span-5" : ""}`}>
-                    {s}
-                  </button>
-                ))}
+                {p.sizes.map((s) => {
+                  const out = sizeLeft(p, s) <= 0
+                  return (
+                    <button key={s} role="radio" aria-checked={size === s} aria-label={out ? `${s}, sold out` : s} disabled={sold || out} onClick={() => setSize(s)} data-cursor={out ? "" : "SELECT"} className={`label relative py-3.5 transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-40 ${size === s ? "bg-[var(--ink)] text-[var(--paper)]" : "bg-[var(--paper)] hover:bg-[var(--paper-2)]"} ${p.sizes.length === 1 ? "col-span-5" : ""}`}>
+                      <span className={out ? "line-through decoration-[1.5px]" : ""}>{s}</span>
+                    </button>
+                  )
+                })}
               </div>
             </motion.div>
 
@@ -99,7 +104,7 @@ export function ProductView({ product: p, related }: { product: ShopProduct; rel
                 </span>
               </button>
             </Magnetic>
-            {low && <p className="label mt-3 text-[var(--mute)]">Only {p.stock} left</p>}
+            {warn && <p className="label mt-3 text-[var(--mute)]">{warn}</p>}
 
             <div className="mt-10 border-t">
               <Spec title="Fabric" body={p.fabric} />

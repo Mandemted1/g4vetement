@@ -19,6 +19,7 @@ export const toShop = (products: Product[]): ShopProduct[] =>
 
 export const categoriesOf = (shop: ShopProduct[]) => [...new Set(shop.map((p) => p.category))]
 export const isSoldOut = (p: Pick<Product, "stock">) => p.stock <= 0
+export { sizeLeft } from "./stock"
 /** In-stock first, sold out last. */
 export const sortedForGrid = (list: ShopProduct[]) => [...list].sort((a, b) => Number(isSoldOut(a)) - Number(isSoldOut(b)))
 export const price = (n: number) => `$${n}`

@@ -22,11 +22,11 @@ const TYPES: { value: GarmentType; label: string }[] = [
 ]
 
 const blank: ProductInput = {
-  name: "", category: "Tees", type: "tee", price: 40, stock: 20, reorderLevel: 10, description: "", fabric: "", fit: "",
+  name: "", category: "Tees", type: "tee", price: 40, sizeStock: { S: 5, M: 5, L: 5, XL: 5 }, reorderLevel: 10, description: "", fabric: "", fit: "",
   active: true, colors: [{ name: "Black", hex: "#141414" }], sizes: ["S", "M", "L", "XL"], images: [],
 }
 const fromProduct = (p: Product): ProductInput => ({
-  name: p.name, category: p.category, type: p.type, price: p.price, stock: p.stock, reorderLevel: p.reorderLevel, description: p.description,
+  name: p.name, category: p.category, type: p.type, price: p.price, sizeStock: p.sizeStock, reorderLevel: p.reorderLevel, description: p.description,
   fabric: p.fabric, fit: p.fit, active: p.active, colors: p.colors, sizes: p.sizes, images: p.images,
 })
 
@@ -152,6 +152,10 @@ function Form({ product, categories, onClose }: { product: Product | null; categ
   const [addCat, setAddCat] = useState(false)
   const [newCat, setNewCat] = useState("")
   const file = useRef<HTMLInputElement>(null)
+  // the sizes as typed, tidied (no blanks or repeats); the per-size stock boxes follow this list
+  const sizeList = [...new Set(sizes.split(",").map((x) => x.trim()).filter(Boolean))]
+  const total = sizeList.reduce((n, sz) => n + (f.sizeStock[sz] ?? 0), 0)
+  const soldOut = sizeList.filter((sz) => (f.sizeStock[sz] ?? 0) <= 0)
   const set = <K extends keyof ProductInput>(k: K, v: ProductInput[K]) => setF((x) => ({ ...x, [k]: v }))
 
   const upload = async (list: FileList | null) => {
@@ -175,7 +179,7 @@ function Form({ product, categories, onClose }: { product: Product | null; categ
     const chosen = addCat ? newCat.trim() : f.category
     const named = f.colors.filter((c) => c.name.trim()).map((c) => c.name.trim().toLowerCase())
     if (new Set(named).size !== named.length) return setErr("Two colours have the same name. Give each one its own name.")
-    const payload: ProductInput = { ...f, category: chosen, sizes: sizes.split(",").map((s) => s.trim()).filter(Boolean), colors: f.colors.filter((c) => c.name.trim()) }
+    const payload: ProductInput = { ...f, category: chosen, sizes: sizeList, sizeStock: Object.fromEntries(sizeList.map((s) => [s, f.sizeStock[s] ?? 0])), colors: f.colors.filter((c) => c.name.trim()) }
     startSave(async () => {
       if (addCat) {
         if (!chosen) return setErr("Type a name for the new category.")
@@ -237,10 +241,9 @@ function Form({ product, categories, onClose }: { product: Product | null; categ
           </select>
         </label>
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <label className={field}>Price ($)<Input type="number" min={0} value={f.price} onChange={(e) => set("price", Math.round(Number(e.target.value)))} /></label>
-        <label className={field}>Stock<Input type="number" min={0} value={f.stock} onChange={(e) => set("stock", Math.round(Number(e.target.value)))} /></label>
-        <label className={field}>Low-stock at<Input type="number" min={0} value={f.reorderLevel} onChange={(e) => set("reorderLevel", Math.round(Number(e.target.value)))} /></label>
+        <label className={field}>Low-stock warning at<Input type="number" min={0} value={f.reorderLevel} onChange={(e) => set("reorderLevel", Math.round(Number(e.target.value)))} /></label>
       </div>
 
       <label className={field}>Description<textarea className={area} value={f.description} onChange={(e) => set("description", e.target.value)} /></label>
@@ -253,6 +256,32 @@ function Form({ product, categories, onClose }: { product: Product | null; categ
       <p className="-mt-3 text-xs text-muted-foreground">Tap a swatch to add it, or type a code like <span className="font-mono">#1f2a44</span>. The name fills in on its own.</p>
 
       <label className={field}>Sizes <span className="text-muted-foreground">(comma separated)</span><Input value={sizes} onChange={(e) => setSizes(e.target.value)} placeholder="S, M, L, XL" /></label>
+
+      <div className={field}>
+        <div className="flex items-baseline justify-between">
+          <span>Stock by size</span>
+          <span className="text-xs text-muted-foreground tabular">{total} in total{soldOut.length > 0 && total > 0 ? ` · sold out: ${soldOut.join(", ")}` : ""}</span>
+        </div>
+        {sizeList.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Type the sizes above, then set how many of each you have.</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {sizeList.map((sz) => (
+              <label key={sz} className="flex flex-col gap-1 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">{sz}</span>
+                <Input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  aria-label={`Stock for size ${sz}`}
+                  value={f.sizeStock[sz] ?? 0}
+                  onChange={(e) => set("sizeStock", { ...f.sizeStock, [sz]: Math.max(0, Math.round(Number(e.target.value)) || 0) })}
+                />
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
 
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={f.active} onChange={(e) => set("active", e.target.checked)} className="size-4" />

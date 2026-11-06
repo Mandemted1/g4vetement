@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { AnimatePresence, motion } from "motion/react"
-import { FREE_SHIPPING_AT, onSale, price, unitPrice } from "@/lib/store"
+import { FREE_SHIPPING_AT, onSale, price, sizeLeft, unitPrice } from "@/lib/store"
 import { placeOrder, quoteOrder, type QuoteResult } from "@/app/(store)/actions"
 import { cn } from "@/lib/utils"
 import { useCatalog } from "./catalog"
@@ -77,9 +77,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const add: CartCtx["add"] = useCallback((l, from) => {
     const p = shopById.get(l.productId)
-    if (!p || p.stock <= 0) return
+    if (!p || sizeLeft(p, l.size) <= 0) return
     const key = `${l.productId}|${l.size}|${l.color}`
-    const cap = Math.min(MAX_QTY, p.stock)
+    // a line can't go past what's left in its size (checkout also checks all colours of a size together)
+    const cap = Math.min(MAX_QTY, sizeLeft(p, l.size))
     track("add_to_cart", { product_id: l.productId })
     const land = () => {
       setLines((prev) => {
@@ -100,7 +101,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       prev.flatMap((l) => {
         if (l.key !== key) return [l]
         if (qty <= 0) return []
-        return [{ ...l, qty: Math.min(qty, MAX_QTY, shopById.get(l.productId)?.stock ?? MAX_QTY) }]
+        const p = shopById.get(l.productId)
+        return [{ ...l, qty: Math.min(qty, MAX_QTY, p ? sizeLeft(p, l.size) : MAX_QTY) }]
       }),
     )
   }, [shopById])

@@ -22,7 +22,6 @@ const quoteErr = async (items: object[]) => (await db.rpc("quote_order", { p_ema
 
 const TAG = "ZZT"
 const created = { codes: [] as string[], sales: [] as string[], orders: [] as string[], emails: [] as string[] }
-const stockBefore = new Map<string, number>((await db.from("products").select("id, stock")).data!.map((p) => [p.id, p.stock]))  // read-only: used to pick low-stock products for the stock tests
 
 const code = async (c: string, row: Record<string, unknown>) => {
   const { error } = await db.from("discount_codes").insert({ code: `${TAG}${c}`, ...row })
@@ -112,9 +111,9 @@ try {
   ok("empty bag is refused", /empty/.test(await quoteErr([])))
   ok("invalid size is refused", /Invalid size/.test(await quoteErr([line("p01", "XXXL")])))
   ok("invalid colour is refused", /Invalid colour/.test(await quoteErr([line("p01", "M", "Pink")])))
-  ok("a sold-out product can't be bought", /Only 0 left/.test(await quoteErr([line("p10", "32", "Indigo")])), "p10 has 0 in stock")
-  const s06 = stockBefore.get("p06")!
-  ok("two lines of one product are checked together against stock", /Only \d+ left/.test(await quoteErr([line("p06", "M", "Black", Math.ceil(s06 / 2) + 1), line("p06", "L", "Black", Math.ceil(s06 / 2) + 1)])), `p06 stock ${s06}`)
+  ok("a sold-out product can't be bought", /sold out/i.test(await quoteErr([line("p10", "32", "Indigo")])), "p10 has 0 in stock")
+  const m06 = ((await db.from("products").select("size_stock").eq("id", "p06").single()).data!.size_stock as Record<string, number>).M
+  ok("two colours of one size are checked together against that size's stock", /Only \d+ left/.test(await quoteErr([line("p06", "M", "Black", m06), line("p06", "M", "Olive", 1)])), `p06 size M stock ${m06}`)
 
   // ---------- real checkout ----------
   const e1 = `${TAG.toLowerCase()}-a@example.com`
@@ -183,11 +182,10 @@ try {
   // ---------- clean up everything this test made (and only that) ----------
   for (const id of created.orders) {
     // put the bought items back on the shelf, then remove the order
-    const o = (await db.from("orders").select("status, order_items(product_id, qty)").eq("id", id).maybeSingle()).data
+    const o = (await db.from("orders").select("status, order_items(product_id, size, qty)").eq("id", id).maybeSingle()).data
     if (o && o.status !== "cancelled") {
-      for (const it of o.order_items as { product_id: string; qty: number }[]) {
-        const { data: p } = await db.from("products").select("stock").eq("id", it.product_id).single()
-        if (p) await db.from("products").update({ stock: p.stock + it.qty }).eq("id", it.product_id)
+      for (const it of o.order_items as { product_id: string; size: string; qty: number }[]) {
+        await db.rpc("adjust_stock", { p_product: it.product_id, p_size: it.size, p_delta: it.qty })
       }
     }
     await db.from("orders").delete().eq("id", id)

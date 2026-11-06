@@ -12,7 +12,10 @@ export interface Product {
   price: number
   colors: { name: string; hex: string }[]
   sizes: string[]
+  /** total across all sizes */
   stock: number
+  /** units left in each size, e.g. { S: 8, M: 12, L: 0 } (adds up to `stock`) */
+  sizeStock: Record<string, number>
   reorderLevel: number
   description: string
   fabric: string

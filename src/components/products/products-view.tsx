@@ -12,6 +12,7 @@ import { ProductThumb } from "@/components/product-thumb"
 import { ProductEditor } from "@/components/products/product-editor"
 import { useAdmin } from "@/components/admin-data"
 import { isBooked, stockState, type Product } from "@/lib/data"
+import { soldOutSizes } from "@/lib/stock"
 import { int, money } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -104,6 +105,7 @@ export function ProductsView() {
                           <span className="tabular">{p.stock} units</span>
                           {st !== "ok" && <Badge variant="secondary" className={cn("border-0", st === "out" ? "bg-negative/12 text-negative" : "bg-warning/15 text-[oklch(0.5_0.12_70)] dark:text-warning")}>{st === "out" ? "Sold out" : "Low"}</Badge>}
                         </div>
+                        {st !== "out" && soldOutSizes(p).length > 0 && <div className="text-xs text-muted-foreground">Out of: {soldOutSizes(p).join(", ")}</div>}
                         <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                           <div className={cn("h-full rounded-full transition-all duration-700", st === "ok" ? "bg-foreground" : st === "low" ? "bg-warning" : "bg-negative")} style={{ width: `${Math.min(100, (p.stock / Math.max(1, p.reorderLevel * 4)) * 100)}%` }} />
                         </div>

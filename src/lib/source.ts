@@ -3,6 +3,7 @@ import store from "@/data/store.json"
 import { META } from "./catalog-meta"
 import { buildAdminData, type AdminData, type Category, type CustomerBase, type Order, type OrderStatus, type Product, type Subscriber } from "./data"
 import { getImages } from "./product-images"
+import { evenSplit, readSizeStock } from "./stock"
 import { anonClient, sessionClient } from "./supabase/clients"
 import { isLive } from "./supabase/env"
 
@@ -19,6 +20,7 @@ function demoProducts(): Product[] {
     colors: p.colors,
     sizes: p.sizes,
     stock: p.stock,
+    sizeStock: evenSplit(p.stock, p.sizes),
     reorderLevel: p.reorderLevel,
     description: META[p.id].desc,
     fabric: META[p.id].fabric,
@@ -41,6 +43,7 @@ const toProduct = (r: any): Product => ({
   colors: r.colors ?? [],
   sizes: r.sizes ?? [],
   stock: r.stock,
+  sizeStock: readSizeStock(r.size_stock, r.stock, r.sizes ?? []),
   reorderLevel: r.reorder_level,
   description: r.description ?? "",
   fabric: r.fabric ?? "",

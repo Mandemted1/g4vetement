@@ -27,13 +27,12 @@ if (mode === "up") {
   // only orders placed by the test shopper
   const customers = (await db.from("customers").select("id").like("email", TEST_EMAIL)).data ?? []
   const ids = customers.map((c) => c.id)
-  const orders = ids.length ? ((await db.from("orders").select("id, status, subtotal, discount, discount_code, shipping, total, sale_discount, order_items(product_id, name, price, list_price, qty)").in("customer_id", ids)).data ?? []) : []
+  const orders = ids.length ? ((await db.from("orders").select("id, status, subtotal, discount, discount_code, shipping, total, sale_discount, order_items(product_id, name, size, price, list_price, qty)").in("customer_id", ids)).data ?? []) : []
   for (const o of orders) console.log("TEST ORDER:", JSON.stringify(o))
   for (const o of orders) {
     if (o.status !== "cancelled") {
-      for (const it of o.order_items as { product_id: string; qty: number }[]) {
-        const { data: p } = await db.from("products").select("stock").eq("id", it.product_id).single()
-        if (p) await db.from("products").update({ stock: p.stock + it.qty }).eq("id", it.product_id)
+      for (const it of o.order_items as { product_id: string; size: string; qty: number }[]) {
+        await db.rpc("adjust_stock", { p_product: it.product_id, p_size: it.size, p_delta: it.qty })
       }
     }
     await db.from("orders").delete().eq("id", o.id)

@@ -15,6 +15,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { createClient } from "@supabase/supabase-js"
 import { simVisitsForDay } from "./sim-visits.mjs"
+import { evenSplit, readSizeStock } from "../src/lib/stock"
 
 const DAY = 86_400_000
 const FREE_SHIPPING_AT = 100
@@ -88,7 +89,7 @@ if (!live) {
   ;({ products, customers, orders } = store)
   orders.forEach((o: any) => (o.sim = true))
 } else {
-  products = (await pageAll((a, b) => db!.from("products").select("*").range(a, b))).map((p) => ({ id: p.id, name: p.name, price: p.price, stock: p.stock, reorderLevel: p.reorder_level, colors: p.colors, sizes: p.sizes, weight: weightById.get(p.id) ?? 5 }))
+  products = (await pageAll((a, b) => db!.from("products").select("*").range(a, b))).map((p) => ({ id: p.id, name: p.name, price: p.price, stock: p.stock, sizeStock: readSizeStock(p.size_stock, p.stock, p.sizes), reorderLevel: p.reorder_level, colors: p.colors, sizes: p.sizes, weight: weightById.get(p.id) ?? 5 }))
   customers = await pageAll((a, b) => db!.from("customers").select("id, name, email, city, state").range(a, b))
   let rows: any[]
   try {
@@ -99,7 +100,10 @@ if (!live) {
   }
   orders = rows.map((o) => ({ id: o.id, customerId: o.customer_id, date: o.created_at, status: o.status, sim: o.sim }))
 }
+// stock is tracked per size; the bundled demo JSON only has totals, so it is split evenly
+products.forEach((p) => { p.sizeStock ??= evenSplit(p.stock, p.sizes) })
 const startStock = new Map<string, number>(products.map((p) => [p.id, p.stock]))
+const startSizes = new Map<string, string>(products.map((p) => [p.id, JSON.stringify(p.sizeStock)]))
 const startStatus = new Map<string, string>(orders.map((o: any) => [o.id, o.status]))
 
 const simOrders = orders.filter((o: any) => o.sim)
@@ -127,7 +131,14 @@ for (let d = lastDay + DAY; d <= through; d += DAY) {
   perDay.set(d, 0)
 
   // weekly restock (Mondays): anything at/below reorder level is topped up
-  if (new Date(d).getUTCDay() === 1) products.forEach((p) => { if (p.stock <= p.reorderLevel) p.stock += p.reorderLevel * 3 })
+  if (new Date(d).getUTCDay() === 1) {
+    products.forEach((p) => {
+      if (p.stock > p.reorderLevel) return
+      const add = evenSplit(p.reorderLevel * 3, p.sizes)
+      for (const sz of p.sizes) p.sizeStock[sz] = (p.sizeStock[sz] ?? 0) + add[sz]
+      p.stock += p.reorderLevel * 3
+    })
+  }
 
   const times = Array.from({ length: n }, () => ({
     h: weighted([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23], (h) => (h >= 19 ? 3 : h >= 12 ? 2 : 1), r),
@@ -163,11 +174,15 @@ for (let d = lastDay + DAY; d <= through; d += DAY) {
     }
     const entries = Object.entries(lines)
     if (!entries.length) continue
-    const items = entries.map(([id, qty]) => {
+    const items = entries.map(([id, want]) => {
       const p = products.find((x) => x.id === id)!
-      p.stock -= qty
       const color = pick(p.colors as any[], r)
-      const size = p.sizes.length === 1 ? p.sizes[0] : weighted(p.sizes as string[], (s) => (["M", "L", "32", "34"].includes(s) ? 3 : 2), r)
+      // only sizes that are still in stock can be bought, and never more than that size has left
+      const open = (p.sizes as string[]).filter((s) => (p.sizeStock[s] ?? 0) > 0)
+      const size = open.length === 1 ? open[0] : weighted(open, (s) => (["M", "L", "32", "34"].includes(s) ? 3 : 2), r)
+      const qty = Math.min(want, p.sizeStock[size])
+      p.sizeStock[size] -= qty
+      p.stock -= qty
       return { productId: id, name: p.name, size, color: color.name, colorHex: color.hex, qty, price: p.price }
     })
     const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0)
@@ -212,7 +227,7 @@ for (const o of orders) {
   if (o.status === "delivered" && age > 7 && age <= 8 && sr() < 0.03) o.status = "refunded"
 }
 
-const stockChanges = products.filter((p) => p.stock !== startStock.get(p.id))
+const stockChanges = products.filter((p) => p.stock !== startStock.get(p.id) || JSON.stringify(p.sizeStock) !== startSizes.get(p.id))
 const statusChanges = orders.filter((o: any) => startStatus.has(o.id) && startStatus.get(o.id) !== o.status)
 console.log(`${live ? "Supabase" : "JSON"}: +${newOrders.length} orders (${newCustomers.length} new customers) through ${ymd(through)}; ${statusChanges.length} status updates; ${stockChanges.length} products restocked/drawn down.`)
 if (dry) {
@@ -271,7 +286,9 @@ for (let i = 0; i < items.length; i += 500) {
   if (error) fail("order items", error)
 }
 for (const p of stockChanges) {
-  const { error } = await db!.from("products").update({ stock: p.stock }).eq("id", p.id)
+  // the database keeps `stock` equal to the sum of the sizes; if the size column isn't there yet (migration 007), fall back to the total
+  let { error } = await db!.from("products").update({ size_stock: p.sizeStock }).eq("id", p.id)
+  if (error && /size_stock/.test(error.message)) ({ error } = await db!.from("products").update({ stock: p.stock }).eq("id", p.id))
   if (error) fail("stock", error)
 }
 const byStatus = new Map<string, string[]>()

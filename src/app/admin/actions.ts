@@ -34,7 +34,7 @@ export async function setOrderStatus(orderId: string, next: OrderStatus): Promis
   if (!isLive) return DEMO
   const db = await admin()
   if (!db) return { ok: false, error: "Please sign in again." }
-  const { data: order, error: e1 } = await db.from("orders").select("status, order_items(product_id, qty)").eq("id", orderId).single()
+  const { data: order, error: e1 } = await db.from("orders").select("status, order_items(product_id, size, qty)").eq("id", orderId).single()
   if (e1 || !order) return { ok: false, error: e1?.message ?? "Order not found" }
   if (order.status === "cancelled" || order.status === "refunded") return { ok: false, error: `A ${order.status} order can't be changed.` }
 
@@ -42,9 +42,9 @@ export async function setOrderStatus(orderId: string, next: OrderStatus): Promis
   if (error) return msg(error)
 
   if (next === "cancelled") {
-    for (const it of order.order_items as { product_id: string; qty: number }[]) {
-      const { data: p } = await db.from("products").select("stock").eq("id", it.product_id).single()
-      if (p) await db.from("products").update({ stock: p.stock + it.qty }).eq("id", it.product_id)
+    // each item goes back into the size it was bought in (atomic in the database)
+    for (const it of order.order_items as { product_id: string; size: string; qty: number }[]) {
+      await db.rpc("adjust_stock", { p_product: it.product_id, p_size: it.size, p_delta: it.qty })
     }
   }
   refresh()
@@ -57,7 +57,8 @@ export interface ProductInput {
   category: string
   type: GarmentType
   price: number
-  stock: number
+  /** units left per size; every size in `sizes` needs an entry. The product's total stock is worked out from this. */
+  sizeStock: Record<string, number>
   reorderLevel: number
   description: string
   fabric: string
@@ -71,14 +72,18 @@ export interface ProductInput {
 function validate(p: ProductInput): string | null {
   if (!p.name.trim()) return "Name is required"
   if (!Number.isInteger(p.price) || p.price < 0) return "Price must be a whole number of dollars"
-  if (!Number.isInteger(p.stock) || p.stock < 0) return "Stock must be 0 or more"
+  for (const s of p.sizes) {
+    const n = p.sizeStock[s]
+    if (!Number.isInteger(n) || n < 0) return `Stock for size ${s} must be a whole number, 0 or more`
+  }
   if (!Number.isInteger(p.reorderLevel) || p.reorderLevel < 0) return "Reorder level must be 0 or more"
   if (p.colors.length === 0) return "Add at least one colour"
   if (p.sizes.length === 0) return "Add at least one size"
+  if (new Set(p.sizes.map((x) => x.toLowerCase())).size !== p.sizes.length) return "Two sizes have the same name"
   return null
 }
 const row = (p: ProductInput) => ({
-  name: p.name.trim(), category: p.category.trim() || "Other", type: p.type, price: p.price, stock: p.stock, reorder_level: p.reorderLevel,
+  name: p.name.trim(), category: p.category.trim() || "Other", type: p.type, price: p.price, size_stock: Object.fromEntries(p.sizes.map((s) => [s, p.sizeStock[s] ?? 0])), reorder_level: p.reorderLevel,
   description: p.description, fabric: p.fabric, fit: p.fit, active: p.active, colors: p.colors, sizes: p.sizes, images: p.images,
 })
 

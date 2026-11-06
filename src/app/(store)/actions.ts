@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import { after } from "next/server"
 import { sendOrderEmail, sendWelcomeEmail } from "@/lib/email/service"
 import { getCatalog } from "@/lib/source"
-import { FREE_SHIPPING_AT, SHIPPING, WELCOME_CODE, WELCOME_MIN, WELCOME_OFF } from "@/lib/store"
+import { FREE_SHIPPING_AT, SHIPPING, WELCOME_CODE, WELCOME_MIN, WELCOME_OFF, sizeLeft } from "@/lib/store"
 import { anonClient } from "@/lib/supabase/clients"
 import { isLive } from "@/lib/supabase/env"
 
@@ -64,9 +64,16 @@ const toQuote = (q: any): Quote => ({
 async function demoQuote(input: { email?: string; code?: string; items: BagLine[] }): Promise<QuoteResult> {
   const catalog = new Map((await getCatalog()).map((p) => [p.id, p]))
   let sub = 0
+  const wanted = new Map<string, number>()
   for (const i of input.items) {
     const p = catalog.get(i.productId)
-    if (!p || p.stock < i.qty) return { ok: false, error: `${p?.name ?? "An item"} is no longer available in that quantity.` }
+    if (!p) return { ok: false, error: "An item in your bag is no longer available." }
+    const key = `${i.productId}|${i.size}`
+    const q = (wanted.get(key) ?? 0) + i.qty
+    wanted.set(key, q)
+    const left = sizeLeft(p, i.size)
+    if (left <= 0) return { ok: false, error: `${p.name} is sold out in size ${i.size}` }
+    if (left < q) return { ok: false, error: `Only ${left} left of ${p.name} in size ${i.size}` }
     sub += p.price * i.qty
   }
   const code = input.code?.trim().toUpperCase() || null
