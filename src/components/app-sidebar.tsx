@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ExternalLinkIcon, LayoutDashboardIcon, LogOutIcon, MailIcon, MegaphoneIcon, MailOpenIcon, BarChart3Icon, PackageIcon, ShirtIcon, UsersIcon } from "lucide-react"
+import { ExternalLinkIcon, LayoutDashboardIcon, LogOutIcon, MailIcon, MegaphoneIcon, MailOpenIcon, BarChart3Icon, SettingsIcon, PackageIcon, ShirtIcon, UsersIcon } from "lucide-react"
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail,
@@ -24,7 +24,10 @@ export function AppSidebar() {
     { title: "Customers", href: "/admin/customers", icon: UsersIcon },
     { title: "View store", href: "/", icon: ExternalLinkIcon, external: true },
   ]
-  const insights = [{ title: "Analytics", href: "/admin/analytics", icon: BarChart3Icon }]
+  const insights = [
+    { title: "Analytics", href: "/admin/analytics", icon: BarChart3Icon },
+    { title: "Settings", href: "/admin/settings", icon: SettingsIcon },
+  ]
   const marketing = [
     { title: "Campaigns", href: "/admin/campaigns", icon: MegaphoneIcon },
     { title: "Emails", href: "/admin/emails", icon: MailOpenIcon },

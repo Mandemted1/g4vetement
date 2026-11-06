@@ -1,13 +1,14 @@
 "use client"
 
 import { useRef, useState, useTransition } from "react"
-import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { PlusIcon, Trash2Icon, UploadIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { createProduct, updateProduct, uploadProductPhoto, type ProductInput } from "@/app/admin/actions"
+import { createProduct, updateProduct, type ProductInput } from "@/app/admin/actions"
+import { SmartImage } from "@/components/smart-image"
+import { uploadImage } from "@/lib/upload"
 import type { GarmentType, Product } from "@/lib/data"
 
 const TYPES: { value: GarmentType; label: string }[] = [
@@ -53,10 +54,7 @@ function Form({ product, categories, onClose }: { product: Product | null; categ
     setUploading(true)
     setErr("")
     for (const fl of Array.from(list)) {
-      const fd = new FormData()
-      fd.set("file", fl)
-      fd.set("productId", product?.id ?? "new")
-      const r = await uploadProductPhoto(fd)
+      const r = await uploadImage(fl, product?.id ?? "new")
       if (!r.ok) {
         setErr(r.error)
         break
@@ -90,7 +88,7 @@ function Form({ product, categories, onClose }: { product: Product | null; categ
         <div className="grid grid-cols-4 gap-2">
           {f.images.map((src, i) => (
             <div key={src} className="group relative aspect-[4/5] overflow-hidden rounded-md border bg-muted">
-              <Image src={src} alt="" fill sizes="100px" className="object-cover" />
+              <SmartImage src={src} alt="" fill sizes="100px" className="object-cover" />
               {i === 0 && <span className="absolute left-1 top-1 rounded bg-background/90 px-1 text-[10px]">Main</span>}
               <button type="button" aria-label="Remove photo" onClick={() => set("images", f.images.filter((_, j) => j !== i))} className="absolute right-1 top-1 rounded bg-background/90 p-1 opacity-0 transition-opacity group-hover:opacity-100">
                 <Trash2Icon className="size-3" />

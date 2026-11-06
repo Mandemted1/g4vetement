@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation"
-import { LoginForm } from "@/components/login-form"
+import { LoginScreen } from "@/components/login-screen"
+import { getLoginSettings } from "@/lib/settings"
 import { isLive } from "@/lib/supabase/env"
 
 export const metadata = { title: "Sign in" }
+export const dynamic = "force-dynamic" // the look is editable in the admin, so never serve a stale copy
 
-export default function LoginPage() {
+export default async function LoginPage() {
   if (!isLive) {
     // Locally, demo mode has no accounts, so skip the login. On a live site, explain what's missing instead.
     if (process.env.VERCEL_ENV !== "production") redirect("/admin")
@@ -18,9 +20,5 @@ export default function LoginPage() {
       </div>
     )
   }
-  return (
-    <div className="flex min-h-dvh items-center justify-center bg-muted/40 p-4">
-      <LoginForm />
-    </div>
-  )
+  return <LoginScreen settings={await getLoginSettings()} />
 }

@@ -1,3 +1,4 @@
+import { cloudinaryUrl } from "@/lib/images"
 import type { Block, EmailDoc } from "./types"
 
 /** One line of an order, as shown in order emails. */
@@ -67,7 +68,7 @@ function block(b: Block, d: EmailDoc, c: RenderContext): string {
       return `<tr><td style="padding:8px 32px;text-align:${b.align};font-family:${FONT};color:${ink};font-size:15px;line-height:1.6;">${rich(b.text, c.vars)}</td></tr>`
     case "image": {
       if (!b.url) return `<tr><td style="padding:10px 32px;"><div style="background:#e2e1dc;color:${mute};font-family:${MONO};font-size:11px;letter-spacing:0.08em;text-transform:uppercase;text-align:center;padding:60px 0;">Image</div></td></tr>`
-      const src = b.url.startsWith("/") ? c.storeUrl + b.url : b.url
+      const src = cloudinaryUrl(b.url.startsWith("/") ? c.storeUrl + b.url : b.url, { w: 1072, f: "jpg", ar: false })
       const img = `<img src="${esc(src)}" alt="${esc(b.alt)}" width="536" style="display:block;width:100%;max-width:536px;height:auto;border:0;">`
       return `<tr><td style="padding:10px 32px;">${b.link ? `<a href="${url(b.link, c)}">${img}</a>` : img}</td></tr>`
     }
@@ -87,7 +88,7 @@ function block(b: Block, d: EmailDoc, c: RenderContext): string {
       const cell = (p: ProductLite) => {
         const href = esc(`${c.storeUrl}/product/${p.id}`)
         const pic = p.image
-          ? `<img src="${esc(p.image.startsWith("/") ? c.storeUrl + p.image : p.image)}" alt="${esc(p.name)}" width="256" style="display:block;width:100%;height:auto;border:0;">`
+          ? `<img src="${esc(cloudinaryUrl(p.image.startsWith("/") ? c.storeUrl + p.image : p.image, { w: 512, f: "jpg" }))}" alt="${esc(p.name)}" width="256" style="display:block;width:100%;height:auto;border:0;">`
           : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#e2e1dc;"><tr><td align="center" valign="middle" height="220" style="height:220px;"><div style="width:64px;height:64px;background:${esc(p.color)};border:1px solid rgba(13,13,13,0.2);font-size:0;line-height:0;">&nbsp;</div></td></tr></table>`
         return `<td class="col" width="50%" valign="top" style="padding:0 6px 18px;"><a href="${href}" style="text-decoration:none;color:${ink};">${pic}<div style="padding-top:10px;font-family:${FONT};font-size:14px;color:${ink};">${esc(p.name)}</div><div style="padding-top:3px;font-family:${MONO};font-size:11px;letter-spacing:0.06em;color:${mute};">${usd(p.price)}</div></a></td>`
       }
@@ -99,7 +100,7 @@ function block(b: Block, d: EmailDoc, c: RenderContext): string {
       const o = c.order
       if (!o) return `<tr><td style="padding:10px 32px;"><div style="background:#e2e1dc;color:${mute};font-family:${MONO};font-size:11px;letter-spacing:0.08em;text-transform:uppercase;text-align:center;padding:40px 0;">Order summary appears here</div></td></tr>`
       const line = (l: OrderLine) =>
-        `<tr><td style="padding:14px 0;border-bottom:1px solid #d9d7d0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${l.image ? `<td width="64" valign="top"><img src="${esc(l.image.startsWith("/") ? c.storeUrl + l.image : l.image)}" width="56" alt="" style="display:block;border:0;"></td>` : ""}<td valign="top" style="font-family:${FONT};font-size:14px;color:${ink};">${esc(l.name)}<div style="padding-top:4px;font-family:${MONO};font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:${mute};">${esc(l.color)} / ${esc(l.size)} / Qty ${l.qty}</div></td><td align="right" valign="top" style="font-family:${MONO};font-size:12px;color:${ink};">${usd(l.price * l.qty)}</td></tr></table></td></tr>`
+        `<tr><td style="padding:14px 0;border-bottom:1px solid #d9d7d0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${l.image ? `<td width="64" valign="top"><img src="${esc(cloudinaryUrl(l.image.startsWith("/") ? c.storeUrl + l.image : l.image, { w: 112, f: "jpg" }))}" width="56" alt="" style="display:block;border:0;"></td>` : ""}<td valign="top" style="font-family:${FONT};font-size:14px;color:${ink};">${esc(l.name)}<div style="padding-top:4px;font-family:${MONO};font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:${mute};">${esc(l.color)} / ${esc(l.size)} / Qty ${l.qty}</div></td><td align="right" valign="top" style="font-family:${MONO};font-size:12px;color:${ink};">${usd(l.price * l.qty)}</td></tr></table></td></tr>`
       const sum = (label: string, v: string, bold = false) =>
         `<tr><td style="padding:5px 0;font-family:${MONO};font-size:${bold ? 12 : 11}px;letter-spacing:0.08em;text-transform:uppercase;color:${bold ? ink : mute};">${label}</td><td align="right" style="padding:5px 0;font-family:${MONO};font-size:${bold ? 12 : 11}px;color:${ink};">${v}</td></tr>`
       return `<tr><td style="padding:10px 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #d9d7d0;">${o.items.map(line).join("")}</table><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;">${sum("Subtotal", usd(o.subtotal))}${o.discount ? sum("Discount", "−" + usd(o.discount)) : ""}${sum("Shipping", o.shipping ? usd(o.shipping) : "Free")}${sum("Total", usd(o.total), true)}</table></td></tr>`

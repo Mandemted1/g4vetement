@@ -2,17 +2,17 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { browserClient } from "@/lib/supabase/browser"
+import { cn } from "@/lib/utils"
 
-export function LoginForm() {
+/** Email + password form. `tone="dark"` is for sitting on top of a photo. */
+export function LoginForm({ tone = "light", tagline }: { tone?: "light" | "dark"; tagline: string }) {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
+  const dark = tone === "dark"
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,27 +28,34 @@ export function LoginForm() {
     router.refresh()
   }
 
+  const input = cn(
+    "w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition-colors",
+    dark ? "border-white/20 bg-white/10 text-white placeholder:text-white/45 focus:border-white/60 focus:bg-white/15" : "border-input bg-transparent focus:border-ring focus:ring-3 focus:ring-ring/50",
+  )
+
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
-        <div className="mb-2 flex size-9 items-center justify-center rounded-lg bg-primary text-sm font-bold tracking-tight text-primary-foreground">G4</div>
-        <CardTitle>G4 Admin</CardTitle>
-        <CardDescription>Sign in to manage orders, products and customers.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1.5 text-sm">
-            Email
-            <Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-          </label>
-          <label className="flex flex-col gap-1.5 text-sm">
-            Password
-            <Input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-          </label>
-          {error && <p className="text-sm text-negative">{error}</p>}
-          <Button type="submit" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</Button>
-        </form>
-      </CardContent>
-    </Card>
+    <div className={dark ? "text-white" : "text-foreground"}>
+      <div className={cn("mb-5 flex size-10 items-center justify-center rounded-xl text-sm font-bold tracking-tight", dark ? "bg-white text-black" : "bg-primary text-primary-foreground")}>G4</div>
+      <h1 className="text-xl font-semibold tracking-tight">G4 Admin</h1>
+      <p className={cn("mt-1.5 text-sm", dark ? "text-white/65" : "text-muted-foreground")}>{tagline}</p>
+      <form onSubmit={submit} className="mt-6 flex flex-col gap-3.5">
+        <label className="flex flex-col gap-1.5 text-sm">
+          Email
+          <input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={input} />
+        </label>
+        <label className="flex flex-col gap-1.5 text-sm">
+          Password
+          <input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} className={input} />
+        </label>
+        {error && <p className={cn("text-sm", dark ? "text-red-300" : "text-negative")}>{error}</p>}
+        <button
+          type="submit"
+          disabled={busy}
+          className={cn("mt-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all disabled:opacity-60", dark ? "bg-white text-black hover:bg-white/90" : "bg-primary text-primary-foreground hover:bg-primary/90")}
+        >
+          {busy ? "Signing in…" : "Sign in"}
+        </button>
+      </form>
+    </div>
   )
 }

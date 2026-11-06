@@ -14,7 +14,9 @@
     "remove-order": "tsx --env-file=.env.local scripts/remove-order.mts",
     "migrate": "tsx --env-file=.env.local scripts/migrate.mts",
     "seed-analytics": "tsx --env-file=.env.local scripts/seed-analytics.mts",
-    "test-email": "tsx --conditions=react-server --env-file=.env.local scripts/send-test-email.mts"
+    "test-email": "tsx --conditions=react-server --env-file=.env.local scripts/send-test-email.mts",
+    "test-cloudinary": "tsx --conditions=react-server --env-file=.env.local scripts/test-cloudinary.mts",
+    "test-cloudinary-store": "tsx --conditions=react-server --env-file=.env.local scripts/test-cloudinary-store.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

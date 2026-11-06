@@ -1,4 +1,4 @@
-import Image from "next/image"
+import { SmartImage } from "@/components/smart-image"
 import type { ShopProduct } from "@/lib/store"
 import { Garment } from "./garment"
 import { cn } from "@/lib/utils"
@@ -24,7 +24,7 @@ export function ProductMedia({
 }) {
   const src = product.images[index]
   if (src) {
-    return <Image src={src} alt={product.name} fill sizes={sizes} priority={priority} className={cn("object-cover", className)} />
+    return <SmartImage src={src} alt={product.name} fill sizes={sizes} priority={priority} className={cn("object-cover", className)} />
   }
   const c = color ?? product.colors[0].hex
   return (

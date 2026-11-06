@@ -5,7 +5,7 @@ import Image from "next/image"
 import { AlignCenterIcon, AlignLeftIcon, AlignRightIcon, ArrowDownIcon, ArrowUpIcon, CopyIcon, GripVerticalIcon, MonitorIcon, PlusIcon, SmartphoneIcon, Trash2Icon, UploadIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { uploadProductPhoto } from "@/app/admin/actions"
+import { uploadImage } from "@/lib/upload"
 import { renderEmail, type ProductLite } from "@/lib/email/render"
 import { BLOCK_LABELS, VARIABLES, newBlock, uid, type Align, type Block, type BlockType, type EmailDoc } from "@/lib/email/types"
 import { cn } from "@/lib/utils"
@@ -262,10 +262,7 @@ function Fields({ b, patch, products, track }: { b: Block; patch: (p: Partial<Bl
                 if (!f) return
                 setBusy(true)
                 setErr("")
-                const fd = new FormData()
-                fd.set("file", f)
-                fd.set("productId", "email")
-                const r = await uploadProductPhoto(fd)
+                const r = await uploadImage(f, "email")
                 if (r.ok) patch({ url: r.url })
                 else setErr(r.error)
                 setBusy(false)
