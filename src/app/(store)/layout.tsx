@@ -18,7 +18,7 @@ import { POLICY_META } from "@/lib/settings-types"
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
-  title: { default: "G4 — Clothing", template: "%s — G4" },
+  title: { default: "G4 Clothing", template: "%s | G4" },
   description: "G4 clothing. Heavyweight basics, clean cuts.",
 }
 

@@ -111,7 +111,7 @@ export function ProductView({ product: p, related, reviews, access }: { product:
                 <span className="relative inline-block mix-blend-difference">
                   <AnimatePresence mode="wait" initial={false}>
                     <motion.span key={sold ? "s" : added ? "a" : "d"} className="inline-block" initial={{ y: 14, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -14, opacity: 0 }} transition={{ duration: 0.25 }}>
-                      {sold ? "Sold out" : added ? "Added to bag" : `Add to bag — ${price(unitPrice(p))}`}
+                      {sold ? "Sold out" : added ? "Added to bag" : `Add to bag · ${price(unitPrice(p))}`}
                     </motion.span>
                   </AnimatePresence>
                 </span>

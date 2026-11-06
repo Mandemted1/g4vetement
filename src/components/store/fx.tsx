@@ -215,7 +215,7 @@ export function Preloader() {
     <AnimatePresence>
       {!done && (
         <motion.div className="fixed inset-0 z-[400] flex flex-col justify-between bg-[#0d0d0d] p-5 text-[#f3f2ef] md:p-8" exit={{ y: "-100%" }} transition={{ duration: 0.95, ease: [0.76, 0, 0.24, 1] }}>
-          <span className="label">G4 — Clothing</span>
+          <span className="label">G4 Clothing</span>
           <div className="flex items-end justify-between">
             <span className="text-[26vw] font-medium leading-[0.74] tracking-[-0.06em] tabular-nums md:text-[16vw]">{String(n).padStart(3, "0")}</span>
             <span className="label pb-2">Loading</span>

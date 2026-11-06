@@ -7,7 +7,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: { default: "G4 Admin", template: "%s · G4 Admin" },
-  description: "G4 clothing store admin — orders, products, customers and sales.",
+  description: "G4 clothing store admin for orders, products, customers and sales.",
 }
 
 const themeScript = `try{var t=localStorage.getItem("g4-theme");if(t==="dark"||(!t&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark")}catch(e){}`

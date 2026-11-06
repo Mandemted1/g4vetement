@@ -522,12 +522,12 @@ function CartDrawer() {
                   {step === "bag" ? (
                     <button onClick={() => { track("checkout_start"); setStep("details") }} disabled={!canCheckout} data-cursor="NEXT" className="label group relative mt-5 w-full overflow-hidden bg-[var(--ink)] py-4 text-[var(--paper)] disabled:opacity-60">
                       <span className="absolute inset-0 origin-bottom scale-y-0 bg-[var(--paper)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-y-100" />
-                      <span className="relative mix-blend-difference">{bagError ? "Update your bag" : `Checkout — ${dueLabel}`}</span>
+                      <span className="relative mix-blend-difference">{bagError ? "Update your bag" : `Checkout · ${dueLabel}`}</span>
                     </button>
                   ) : (
                     <button form="checkout" type="submit" disabled={busy || !canCheckout || Boolean(q?.codeError) || Boolean(q?.giftError)} data-cursor="PAY" className="label group relative mt-5 w-full overflow-hidden bg-[var(--ink)] py-4 text-[var(--paper)] disabled:opacity-60">
                       <span className="absolute inset-0 origin-bottom scale-y-0 bg-[var(--paper)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-y-100" />
-                      <span className="relative mix-blend-difference">{busy ? "Placing order…" : `Place order — ${dueLabel}`}</span>
+                      <span className="relative mix-blend-difference">{busy ? "Placing order…" : `Place order · ${dueLabel}`}</span>
                     </button>
                   )}
                   {(bagError || ship.error) && step === "bag" && <p className="label mt-3 leading-relaxed text-[#b3261e]">{bagError || ship.error}</p>}
