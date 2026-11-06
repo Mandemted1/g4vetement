@@ -29,8 +29,11 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const onLogin = pathname === "/admin/login"
 
-  if (!data.user && !onLogin) return NextResponse.redirect(new URL("/admin/login", request.url))
-  if (data.user && onLogin) return NextResponse.redirect(new URL("/admin", request.url))
+  if (!data.user) return onLogin ? response : NextResponse.redirect(new URL("/admin/login", request.url))
+  // signed in: but only people on the admin list may enter. A customer who wanders onto /admin sees the login page again.
+  const { data: admin } = await supabase.rpc("is_admin")
+  if (admin !== true) return onLogin ? response : NextResponse.redirect(new URL("/admin/login?denied=1", request.url))
+  if (onLogin) return NextResponse.redirect(new URL("/admin", request.url))
   return response
 }
 

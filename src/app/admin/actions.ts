@@ -5,6 +5,7 @@ import { redirect } from "next/navigation"
 import { after } from "next/server"
 import { sendOrderEmail } from "@/lib/email/service"
 import { cloudinaryConfigured, uploadTicket } from "@/lib/cloudinary"
+import { adminClient } from "@/lib/admin-auth"
 import { sessionClient } from "@/lib/supabase/clients"
 import { isLive } from "@/lib/supabase/env"
 import type { GarmentType, OrderStatus } from "@/lib/data"
@@ -16,12 +17,7 @@ type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string }
 const DEMO = { ok: false as const, error: "Demo mode: connect Supabase (see .env.example) to save changes." }
 
 /** Every admin write goes through this: must be live and signed in. */
-async function admin() {
-  if (!isLive) return null
-  const db = await sessionClient()
-  const { data } = await db.auth.getUser()
-  return data.user ? db : null
-}
+const admin = adminClient
 const refresh = () => revalidatePath("/", "layout")
 const msg = (e: { message: string }) => ({ ok: false as const, error: e.message })
 

@@ -10,7 +10,7 @@ alter table site_settings enable row level security;
 
 -- Only a signed-in admin can read or change settings. The login page itself reads its one setting on the server.
 drop policy if exists "admin manage settings" on site_settings;
-create policy "admin manage settings" on site_settings for all to authenticated using (true) with check (true);
+create policy "admin manage settings" on site_settings for all to authenticated using (is_admin()) with check (is_admin());
 
 insert into site_settings (key, value) values (
   'login',

@@ -3,18 +3,13 @@
 import { revalidatePath } from "next/cache"
 import { deliverCampaign, sendTestEmail } from "@/lib/email/service"
 import type { EmailDoc } from "@/lib/email/types"
-import { sessionClient } from "@/lib/supabase/clients"
+import { adminClient } from "@/lib/admin-auth"
 import { isLive } from "@/lib/supabase/env"
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string }
 const DEMO = { ok: false as const, error: "Demo mode: connect Supabase to save emails." }
 
-async function admin() {
-  if (!isLive) return null
-  const db = await sessionClient()
-  const { data } = await db.auth.getUser()
-  return data.user ? db : null
-}
+const admin = adminClient
 const missing = (e: { message: string }) =>
   e.message.includes("does not exist") || e.message.includes("schema cache") ? "The email tables aren't installed yet. Run `npm run migrate` (or the 003 SQL file) first." : e.message
 

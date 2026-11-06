@@ -3,18 +3,13 @@
 import { revalidatePath } from "next/cache"
 import { cleanZone, type ZoneInput } from "@/lib/shipping"
 import { toZone } from "@/lib/shipping-source"
-import { sessionClient } from "@/lib/supabase/clients"
+import { adminClient } from "@/lib/admin-auth"
 import { isLive } from "@/lib/supabase/env"
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string }
 const DEMO = { ok: false as const, error: "Demo mode: connect Supabase to manage shipping." }
 
-async function admin() {
-  if (!isLive) return null
-  const db = await sessionClient()
-  const { data } = await db.auth.getUser()
-  return data.user ? db : null
-}
+const admin = adminClient
 const refresh = () => revalidatePath("/", "layout")
 const friendly = (e: { message: string }) =>
   /does not exist|schema cache/i.test(e.message) ? "Shipping isn't installed yet. Run `npm run migrate` first." : e.message.replace(/^.*?ERROR:\s*/, "")

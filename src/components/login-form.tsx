@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { EyeIcon, EyeOffIcon } from "lucide-react"
 import { browserClient } from "@/lib/supabase/browser"
@@ -16,6 +16,14 @@ export function LoginForm({ tone = "light", tagline }: { tone?: "light" | "dark"
   const [show, setShow] = useState(false)
   const dark = tone === "dark"
 
+  // sent back here because a signed-in customer tried to open the admin
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("denied")) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setError("That account doesn't have admin access. Sign in with your admin account.")
+    }
+  }, [])
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setBusy(true)
@@ -23,6 +31,14 @@ export function LoginForm({ tone = "light", tagline }: { tone?: "light" | "dark"
     const { error } = await browserClient().auth.signInWithPassword({ email, password })
     if (error) {
       setError(error.message === "Invalid login credentials" ? "Wrong email or password." : error.message)
+      setBusy(false)
+      return
+    }
+    // customers have accounts too: being signed in isn't enough, the account has to be an admin
+    const { data: isAdmin } = await browserClient().rpc("is_admin")
+    if (isAdmin !== true) {
+      await browserClient().auth.signOut()
+      setError("That account doesn't have admin access. Shoppers sign in on the store, not here.")
       setBusy(false)
       return
     }

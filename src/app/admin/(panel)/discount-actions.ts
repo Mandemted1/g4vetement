@@ -2,18 +2,13 @@
 
 import { revalidatePath } from "next/cache"
 import { cleanCode, cleanSale, type CodeInput, type SaleInput } from "@/lib/discount-validate"
-import { sessionClient } from "@/lib/supabase/clients"
+import { adminClient } from "@/lib/admin-auth"
 import { isLive } from "@/lib/supabase/env"
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string }
 const DEMO = { ok: false as const, error: "Demo mode: connect Supabase to manage discounts." }
 
-async function admin() {
-  if (!isLive) return null
-  const db = await sessionClient()
-  const { data } = await db.auth.getUser()
-  return data.user ? db : null
-}
+const admin = adminClient
 const refresh = () => {
   revalidatePath("/", "layout")
 }

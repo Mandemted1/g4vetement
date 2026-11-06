@@ -10,7 +10,11 @@ export async function requireAdmin() {
     if (process.env.VERCEL_ENV === "production") redirect("/admin/login")
     return null
   }
-  const { data } = await (await sessionClient()).auth.getUser()
+  const db = await sessionClient()
+  const { data } = await db.auth.getUser()
   if (!data.user) redirect("/admin/login")
+  // customers have accounts too: only people on the admin list get in
+  const { data: yes } = await db.rpc("is_admin")
+  if (yes !== true) redirect("/admin/login?denied=1")
   return data.user
 }
