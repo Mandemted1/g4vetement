@@ -35,7 +35,8 @@
     "test-gift-cards": "tsx scripts/test-gift-cards.mts",
     "test-alerts": "tsx scripts/test-alerts.mts",
     "test-alert-emails": "tsx scripts/test-alert-emails.mts",
-    "test-carts": "tsx --conditions=react-server --env-file=.env.local scripts/test-carts.mts"
+    "test-carts": "tsx --conditions=react-server --env-file=.env.local scripts/test-carts.mts",
+    "test-policy-text": "tsx scripts/test-policy-text.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

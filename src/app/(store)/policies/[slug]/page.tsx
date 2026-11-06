@@ -8,7 +8,7 @@ import { getPolicies, getStoreSettings } from "@/lib/settings"
 import { getShippingZones } from "@/lib/shipping-source"
 import { WORLD } from "@/lib/shipping"
 import { countryName } from "@/lib/countries"
-import { POLICY_META } from "@/lib/settings-types"
+import { HELP_PAGES, POLICY_META } from "@/lib/settings-types"
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
@@ -27,10 +27,10 @@ export default async function PolicyPage({ params }: { params: Promise<{ slug: s
   return (
     <div className="px-5 pb-10 pt-28 md:px-8 md:pt-36">
       <BackLink fallback="/" className="-mt-3 mb-2" />
-      <p className="label mb-6 text-[var(--mute)]">( {store.name} / Policies )</p>
+      <p className="label mb-6 text-[var(--mute)]">( {store.name} / {HELP_PAGES.includes(meta.slug) ? "Help" : "Policies"} )</p>
       <Rise as="h1" text={meta.title} className="text-[clamp(3rem,10vw,9rem)] font-medium leading-[0.85] tracking-[-0.06em]" />
       <div className="mt-14 grid gap-12 md:grid-cols-12">
-        <div className="md:col-span-7 md:col-start-1">
+        <div className="min-w-0 md:col-span-7 md:col-start-1">
           <PolicyText text={text} className="text-[15px] leading-[1.7] text-[#2a2a28]" />
           {zones.length > 0 && (
             <section className="mt-12" aria-label="Current shipping rates">

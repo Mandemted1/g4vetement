@@ -58,14 +58,14 @@ export function StoreHeader() {
   return (
     <>
       <header className={`fixed inset-x-0 top-0 z-50 text-[var(--ink)] transition-[background-color,backdrop-filter,border-color] duration-500 ${scrolled && !menu ? "border-b bg-[var(--paper)]/80 backdrop-blur-md" : "border-b border-transparent"}`}>
-        <div className="grid h-[52px] grid-cols-3 items-center px-5 md:px-8">
+        <div className="grid h-[52px] grid-cols-[1fr_auto_1fr] items-center px-5 md:px-8">
           <button onClick={() => setMenu((m) => !m)} className="label -m-3 justify-self-start p-3" aria-expanded={menu} data-cursor={menu ? "CLOSE" : "MENU"}>
             <span className="u">{menu ? "Close" : "Menu"}</span>
           </button>
           <Link href="/" onClick={() => setMenu(false)} className="-m-3 justify-self-center p-3 text-[19px] font-semibold leading-none tracking-[-0.06em]" aria-label="G4 home">
             G4
           </Link>
-          <div className="label flex items-center gap-1 justify-self-end">
+          <div className="label flex items-center gap-1 justify-self-end whitespace-nowrap">
             <button onClick={() => { setMenu(false); setSearch(true) }} className="-m-3 p-3" data-cursor="SEARCH" aria-label="Search">
               <span className="u">Search</span>
             </button>

@@ -33,8 +33,8 @@ export function PoliciesCard({ initial }: { initial: Policies }) {
   return (
     <Card className="rise" style={{ "--i": 2 } as React.CSSProperties}>
       <CardHeader>
-        <CardTitle>Policies</CardTitle>
-        <CardDescription>Pages linked from your store footer. Start from the text below and make it yours. These are not legal advice, so have a lawyer review them.</CardDescription>
+        <CardTitle>Policies and help pages</CardTitle>
+        <CardDescription>Pages linked from your store footer: size guide, shipping, returns, FAQ, privacy and terms. Start from the text below and make it yours. These are not legal advice, so have a lawyer review them.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap gap-1.5" role="tablist">
@@ -62,11 +62,11 @@ export function PoliciesCard({ initial }: { initial: Policies }) {
               value={p[tab]}
               onChange={(e) => setP({ ...p, [tab]: e.target.value })}
               spellCheck
-              aria-label={`${current.title} policy`}
+              aria-label={`${current.title} page text`}
               className="min-h-[360px] w-full rounded-lg border border-input bg-transparent px-3 py-2.5 font-mono text-[13px] leading-relaxed outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             />
             <p className="text-xs text-muted-foreground">
-              Formatting: start a line with <code className="rounded bg-muted px-1">## </code> for a heading and <code className="rounded bg-muted px-1">- </code> for a bullet. Leave a blank line between paragraphs.
+              Formatting: start a line with <code className="rounded bg-muted px-1">## </code> for a heading and <code className="rounded bg-muted px-1">- </code> for a bullet. Leave a blank line between paragraphs. For a table, write each row between bars, like <code className="rounded bg-muted px-1">| Size | Chest |</code>, with the column titles on the first row.
             </p>
           </div>
           <div className="flex flex-col gap-2">
