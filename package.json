@@ -21,7 +21,8 @@
     "test-store-settings": "tsx --conditions=react-server --env-file=.env.local scripts/test-store-settings.mts",
     "test-discounts": "tsx --env-file=.env.local scripts/test-discounts.mts",
     "test-discounts-store": "tsx --env-file=.env.local scripts/test-discounts-store.mts",
-    "test-discount-validate": "tsx scripts/test-discount-validate.mts"
+    "test-discount-validate": "tsx scripts/test-discount-validate.mts",
+    "test-colors": "tsx scripts/test-colors.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

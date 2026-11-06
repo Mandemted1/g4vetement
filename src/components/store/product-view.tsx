@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { track } from "@/lib/track"
 import { AnimatePresence, motion, useAnimationControls } from "motion/react"
 import { isSoldOut, onSale, pad, price, unitPrice, type ShopProduct } from "@/lib/store"
+import { BackLink } from "./back-link"
 import { PriceTag } from "./price-tag"
 import { useCart } from "./cart"
 import { Magnetic, Rise } from "./fx"
@@ -40,6 +41,10 @@ export function ProductView({ product: p, related }: { product: ShopProduct; rel
   return (
     <>
       <div className="grid gap-y-10 px-5 pt-24 md:grid-cols-12 md:gap-x-8 md:px-8 md:pt-28">
+        <div className="-mb-8 -mt-3 md:col-span-12 md:-mb-6">
+          <BackLink label="Back" />
+        </div>
+
         {/* gallery */}
         <div className="space-y-3 md:col-span-7 md:space-y-4">
           <Zoom product={p} color={color.hex} index={0} priority />

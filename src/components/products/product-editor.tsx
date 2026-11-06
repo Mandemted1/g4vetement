@@ -2,7 +2,9 @@
 
 import { useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { PlusIcon, Trash2Icon, UploadIcon } from "lucide-react"
+import { CheckIcon, PlusIcon, Trash2Icon, UploadIcon } from "lucide-react"
+import { PALETTE, isDark, nearestColorName, parseColor, type NamedColor } from "@/lib/colors"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -30,6 +32,106 @@ const fromProduct = (p: Product): ProductInput => ({
 
 const field = "flex flex-col gap-1.5 text-sm"
 const area = "min-h-20 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+
+type Colour = { name: string; hex: string }
+
+/** A name that no other colour on the product already uses ("Navy", then "Navy 2"…). */
+function uniqueName(base: string, others: Colour[]) {
+  const taken = new Set(others.map((c) => c.name.trim().toLowerCase()))
+  if (!taken.has(base.toLowerCase())) return base
+  let n = 2
+  while (taken.has(`${base} ${n}`.toLowerCase())) n++
+  return `${base} ${n}`
+}
+
+function ColorsField({ colors, onChange }: { colors: Colour[]; onChange: (c: Colour[]) => void }) {
+  // text being typed in each row's code box (kept separate so half-typed codes don't get overwritten)
+  const [drafts, setDrafts] = useState<Record<number, string>>({})
+
+  const clearDraft = (i: number) => setDrafts((d) => Object.fromEntries(Object.entries(d).filter(([k]) => Number(k) !== i)))
+
+  /** Change a row's colour. The name follows along unless the admin has typed their own. */
+  const recolor = (i: number, hex: string, name?: string) =>
+    onChange(
+      colors.map((c, j) => {
+        if (j !== i) return c
+        const autoNamed = !c.name.trim() || c.name === nearestColorName(c.hex)
+        const next = name ?? (autoNamed ? uniqueName(nearestColorName(hex), colors.filter((_, k) => k !== i)) : c.name)
+        return { name: next, hex }
+      }),
+    )
+
+  const addSwatch = (p: NamedColor) => {
+    const have = colors.findIndex((c) => c.hex.toLowerCase() === p.hex)
+    if (have >= 0) return onChange(colors.filter((_, j) => j !== have).length ? colors.filter((_, j) => j !== have) : colors) // tap again to remove
+    // reuse a still-empty row instead of stacking a blank one
+    const blank = colors.findIndex((c) => !c.name.trim())
+    if (blank >= 0) return onChange(colors.map((c, j) => (j === blank ? { ...p } : c)))
+    onChange([...colors, { name: uniqueName(p.name, colors), hex: p.hex }])
+  }
+
+  return (
+    <div className="flex flex-col gap-2 text-sm">
+      <span>Colours</span>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Common colours">
+        {PALETTE.map((p) => {
+          const on = colors.some((c) => c.hex.toLowerCase() === p.hex)
+          return (
+            <button
+              key={p.hex}
+              type="button"
+              title={p.name}
+              aria-label={`${p.name}${on ? " (added)" : ""}`}
+              aria-pressed={on}
+              onClick={() => addSwatch(p)}
+              style={{ background: p.hex }}
+              className={cn("grid size-7 place-items-center rounded-full border transition-transform hover:scale-110", on && "ring-2 ring-foreground ring-offset-2 ring-offset-background")}
+            >
+              {on && <CheckIcon className={cn("size-3.5", isDark(p.hex) ? "text-white" : "text-black")} />}
+            </button>
+          )
+        })}
+      </div>
+
+      {colors.map((c, i) => {
+        const draft = drafts[i]
+        const bad = draft !== undefined && draft.trim() !== "" && !parseColor(draft)
+        return (
+          <div key={i} className="flex items-center gap-2">
+            <input
+              type="color"
+              value={c.hex}
+              onChange={(e) => { clearDraft(i); recolor(i, e.target.value) }}
+              className="size-8 shrink-0 cursor-pointer rounded border bg-transparent p-0.5"
+              aria-label="Pick colour"
+            />
+            <Input
+              value={draft ?? c.hex}
+              spellCheck={false}
+              aria-label="Colour code"
+              aria-invalid={bad}
+              placeholder="#1f2a44"
+              onChange={(e) => {
+                const v = e.target.value
+                setDrafts((d) => ({ ...d, [i]: v }))
+                const hex = parseColor(v)
+                if (hex) recolor(i, hex)
+              }}
+              onBlur={() => clearDraft(i)}
+              className="w-28 shrink-0 font-mono"
+            />
+            <Input value={c.name} placeholder="Name" aria-label="Colour name" onChange={(e) => onChange(colors.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
+            <Button type="button" variant="ghost" size="icon" aria-label="Remove colour" disabled={colors.length === 1} onClick={() => onChange(colors.filter((_, j) => j !== i))}><Trash2Icon /></Button>
+          </div>
+        )
+      })}
+      {colors.some((_, i) => drafts[i] !== undefined && drafts[i].trim() !== "" && !parseColor(drafts[i])) && (
+        <p className="text-xs text-negative">That isn&apos;t a colour code. Try #1f2a44, #abc, rgb(31, 42, 68) or a name like Navy.</p>
+      )}
+      <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => onChange([...colors, { name: "", hex: "#888888" }])}><PlusIcon /> Add colour</Button>
+    </div>
+  )
+}
 
 /** `product` = edit, `null` = create new. Mount with a key so state resets between products. */
 export function ProductEditor({ product, categories, open, onClose }: { product: Product | null; categories: string[]; open: boolean; onClose: () => void }) {
@@ -71,6 +173,8 @@ function Form({ product, categories, onClose }: { product: Product | null; categ
   const save = () => {
     setErr("")
     const chosen = addCat ? newCat.trim() : f.category
+    const named = f.colors.filter((c) => c.name.trim()).map((c) => c.name.trim().toLowerCase())
+    if (new Set(named).size !== named.length) return setErr("Two colours have the same name. Give each one its own name.")
     const payload: ProductInput = { ...f, category: chosen, sizes: sizes.split(",").map((s) => s.trim()).filter(Boolean), colors: f.colors.filter((c) => c.name.trim()) }
     startSave(async () => {
       if (addCat) {
@@ -145,17 +249,8 @@ function Form({ product, categories, onClose }: { product: Product | null; categ
         <label className={field}>Fit<Input value={f.fit} onChange={(e) => set("fit", e.target.value)} /></label>
       </div>
 
-      <div className={field}>
-        <span>Colours</span>
-        {f.colors.map((c, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <input type="color" value={c.hex} onChange={(e) => set("colors", f.colors.map((x, j) => (j === i ? { ...x, hex: e.target.value } : x)))} className="size-8 shrink-0 cursor-pointer rounded border bg-transparent p-0.5" aria-label="Colour" />
-            <Input value={c.name} placeholder="Name" onChange={(e) => set("colors", f.colors.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
-            <Button type="button" variant="ghost" size="icon" aria-label="Remove colour" disabled={f.colors.length === 1} onClick={() => set("colors", f.colors.filter((_, j) => j !== i))}><Trash2Icon /></Button>
-          </div>
-        ))}
-        <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => set("colors", [...f.colors, { name: "", hex: "#888888" }])}><PlusIcon /> Add colour</Button>
-      </div>
+      <ColorsField colors={f.colors} onChange={(c) => set("colors", c)} />
+      <p className="-mt-3 text-xs text-muted-foreground">Tap a swatch to add it, or type a code like <span className="font-mono">#1f2a44</span>. The name fills in on its own.</p>
 
       <label className={field}>Sizes <span className="text-muted-foreground">(comma separated)</span><Input value={sizes} onChange={(e) => setSizes(e.target.value)} placeholder="S, M, L, XL" /></label>
 

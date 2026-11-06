@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { BackLink } from "@/components/store/back-link"
 import { PolicyText } from "@/components/store/policy-text"
 import { Rise } from "@/components/store/fx"
 import { getPolicies, getStoreSettings } from "@/lib/settings"
@@ -22,6 +23,7 @@ export default async function PolicyPage({ params }: { params: Promise<{ slug: s
 
   return (
     <div className="px-5 pb-10 pt-28 md:px-8 md:pt-36">
+      <BackLink fallback="/" className="-mt-3 mb-2" />
       <p className="label mb-6 text-[var(--mute)]">( {store.name} / Policies )</p>
       <Rise as="h1" text={meta.title} className="text-[clamp(3rem,10vw,9rem)] font-medium leading-[0.85] tracking-[-0.06em]" />
       <div className="mt-14 grid gap-12 md:grid-cols-12">
