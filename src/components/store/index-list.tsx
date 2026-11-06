@@ -3,7 +3,8 @@
 import { useState } from "react"
 import Link from "next/link"
 import { AnimatePresence, motion, useMotionValue, useSpring } from "motion/react"
-import { isSoldOut, pad, price, type ShopProduct } from "@/lib/store"
+import { isSoldOut, pad, type ShopProduct } from "@/lib/store"
+import { PriceTag } from "./price-tag"
 import { ProductMedia } from "./product-media"
 
 /** Text index of products. Hover a row and its image follows the cursor. */
@@ -43,7 +44,7 @@ export function IndexList({ products }: { products: ShopProduct[] }) {
                 </span>
                 <span className="label hidden text-[var(--mute)] md:block">{p.category}</span>
                 <span className="label hidden text-[var(--mute)] md:block">{p.colors.map((c) => c.name).join(", ")}</span>
-                <span className="label text-right">{sold ? "Sold out" : price(p.price)}</span>
+                <span className="label text-right">{sold ? "Sold out" : <PriceTag p={p} />}</span>
               </Link>
             </li>
           )

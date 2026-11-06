@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { subscribe } from "@/app/(store)/actions"
-import { WELCOME_CODE, WELCOME_MIN, WELCOME_OFF, price } from "@/lib/store"
+import { offerFinePrint, offerHeadline } from "@/lib/offer-types"
 import { useCatalog } from "./catalog"
 import { useIntroReady } from "./fx"
 import { ProductMedia } from "./product-media"
@@ -13,7 +13,7 @@ const SHOW_AFTER_MS = 4500
 
 /** One-time offer for first-time visitors: $10 off in exchange for an email. */
 export function WelcomePopup() {
-  const { shop } = useCatalog()
+  const { shop, welcome } = useCatalog()
   const ready = useIntroReady()
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState("")
@@ -34,7 +34,7 @@ export function WelcomePopup() {
 
   // New visitors only (nothing stored yet), a few seconds after the intro curtain.
   useEffect(() => {
-    if (!ready) return
+    if (!ready || !welcome) return
     let seen = false
     try {
       seen = Boolean(localStorage.getItem(KEY))
@@ -42,7 +42,7 @@ export function WelcomePopup() {
     if (seen) return
     const t = window.setTimeout(() => setOpen(true), SHOW_AFTER_MS)
     return () => window.clearTimeout(t)
-  }, [ready])
+  }, [ready, welcome])
 
   // Lock page scroll and support Escape while open.
   useEffect(() => {
@@ -71,7 +71,7 @@ export function WelcomePopup() {
       return
     }
     try {
-      localStorage.setItem("g4-code", WELCOME_CODE)
+      if (welcome) localStorage.setItem("g4-code", welcome.code)
     } catch {}
     remember("joined")
     setState("done")
@@ -79,7 +79,7 @@ export function WelcomePopup() {
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(WELCOME_CODE)
+      await navigator.clipboard.writeText(welcome?.code ?? "")
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1800)
     } catch {}
@@ -129,12 +129,12 @@ export function WelcomePopup() {
                   <div>
                     <p className="label text-[var(--mute)]">( Welcome )</p>
                     <h2 className="mt-5 text-[clamp(2.4rem,6vw,3.6rem)] font-medium leading-[0.92] tracking-[-0.055em]">
-                      {price(WELCOME_OFF)} off
+                      {welcome ? offerHeadline(welcome) : ""}
                       <br />
-                      your first order.
+                      {welcome?.firstOrderOnly ? "your first order." : "your order."}
                     </h2>
                     <p className="mt-5 max-w-[34ch] text-[13px] leading-relaxed text-[var(--mute)]">
-                      Join the list for new drops and restocks. We&apos;ll send your code straight away. Valid on bags over {price(WELCOME_MIN)}.
+                      Join the list for new drops and restocks. We&apos;ll send your code straight away. {welcome ? offerFinePrint(welcome) : ""}.
                     </p>
                   </div>
                   <form onSubmit={submit}>
@@ -164,10 +164,10 @@ export function WelcomePopup() {
                     <h2 className="mt-5 text-[clamp(2.4rem,6vw,3.6rem)] font-medium leading-[0.92] tracking-[-0.055em]">Here&apos;s your code.</h2>
                     <button onClick={copy} data-cursor={copied ? "COPIED" : "COPY"} className="group relative mt-7 flex w-full items-center justify-between overflow-hidden border border-dashed border-[var(--ink)] px-4 py-4 text-left">
                       <span className="absolute inset-0 origin-left scale-x-0 bg-[var(--ink)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-x-100" />
-                      <span className="relative text-2xl font-medium tracking-[-0.03em] transition-colors duration-300 group-hover:text-[var(--paper)]">{WELCOME_CODE}</span>
+                      <span className="relative text-2xl font-medium tracking-[-0.03em] transition-colors duration-300 group-hover:text-[var(--paper)]">{welcome?.code}</span>
                       <span className="label relative transition-colors duration-300 group-hover:text-[var(--paper)]">{copied ? "Copied" : "Copy"}</span>
                     </button>
-                    <p className="mt-4 max-w-[34ch] text-[13px] leading-relaxed text-[var(--mute)]">It&apos;s saved to your bag and applied at checkout on orders over {price(WELCOME_MIN)}.</p>
+                    <p className="mt-4 max-w-[34ch] text-[13px] leading-relaxed text-[var(--mute)]">It&apos;s saved to your bag and applied at checkout. {welcome ? offerFinePrint(welcome) : ""}.</p>
                   </div>
                   <button onClick={dismiss} data-cursor="SHOP" className="label group relative w-full overflow-hidden bg-[var(--ink)] py-4 text-[var(--paper)]">
                     <span className="absolute inset-0 origin-bottom scale-y-0 bg-[var(--paper)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-y-100" />

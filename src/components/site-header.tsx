@@ -7,7 +7,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbS
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Notifications } from "@/components/notifications"
 
-const titles: Record<string, string> = { "/admin": "Dashboard", "/admin/orders": "Orders", "/admin/products": "Products", "/admin/customers": "Customers", "/admin/subscribers": "Subscribers", "/admin/campaigns": "Campaigns", "/admin/emails": "Emails", "/admin/analytics": "Analytics", "/admin/settings": "Settings", "/admin/categories": "Categories" }
+const titles: Record<string, string> = { "/admin": "Dashboard", "/admin/orders": "Orders", "/admin/products": "Products", "/admin/customers": "Customers", "/admin/subscribers": "Subscribers", "/admin/campaigns": "Campaigns", "/admin/emails": "Emails", "/admin/analytics": "Analytics", "/admin/settings": "Settings", "/admin/categories": "Categories", "/admin/discounts": "Discounts" }
 
 export function SiteHeader() {
   const pathname = usePathname()

@@ -18,7 +18,10 @@
     "test-cloudinary": "tsx --conditions=react-server --env-file=.env.local scripts/test-cloudinary.mts",
     "test-cloudinary-store": "tsx --conditions=react-server --env-file=.env.local scripts/test-cloudinary-store.mts",
     "test-categories": "tsx --env-file=.env.local scripts/test-categories.mts",
-    "test-store-settings": "tsx --conditions=react-server --env-file=.env.local scripts/test-store-settings.mts"
+    "test-store-settings": "tsx --conditions=react-server --env-file=.env.local scripts/test-store-settings.mts",
+    "test-discounts": "tsx --env-file=.env.local scripts/test-discounts.mts",
+    "test-discounts-store": "tsx --env-file=.env.local scripts/test-discounts-store.mts",
+    "test-discount-validate": "tsx scripts/test-discount-validate.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

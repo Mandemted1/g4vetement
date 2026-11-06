@@ -19,6 +19,11 @@ export interface Product {
   fit: string
   images: string[]
   active: boolean
+  /** set by the storefront catalog when a sale is running: the price actually charged */
+  salePrice?: number
+  salePercent?: number
+  saleName?: string
+  saleEndsAt?: string | null
 }
 export interface OrderItem {
   productId: string
@@ -28,6 +33,8 @@ export interface OrderItem {
   colorHex: string
   qty: number
   price: number
+  /** the price before any sale (equals price when there was none) */
+  listPrice?: number
 }
 export interface Order {
   id: string
@@ -38,6 +45,8 @@ export interface Order {
   subtotal: number
   discount: number
   discountCode: string | null
+  /** value taken off by automatic sales (already reflected in the item prices) */
+  saleDiscount?: number
   shipping: number
   total: number
   status: OrderStatus

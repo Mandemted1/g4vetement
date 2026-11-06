@@ -5,6 +5,7 @@ import { isLive } from "@/lib/supabase/env"
 import { WELCOME_CODE } from "@/lib/store"
 import { DEFAULT_TEMPLATES, type TemplateKey } from "./defaults"
 import { renderEmail, type OrderInfo, type ProductLite } from "./render"
+import { getWelcomeOffer } from "@/lib/offers"
 import { getAddressLine, getStoreSettings } from "@/lib/settings"
 import { emailConfigured, sendBatch, sendEmail, storeUrl, type OutgoingEmail } from "./send"
 import type { EmailDoc } from "./types"
@@ -32,7 +33,7 @@ export async function loadTemplate(key: TemplateKey): Promise<TemplateRow> {
 }
 
 export async function productsLite(): Promise<ProductLite[]> {
-  return (await getCatalog()).map((p) => ({ id: p.id, name: p.name, price: p.price, image: p.images[0], color: p.colors[0]?.hex ?? "#cccccc" }))
+  return (await getCatalog()).map((p) => ({ id: p.id, name: p.name, price: p.salePrice ?? p.price, listPrice: p.price, image: p.images[0], color: p.colors[0]?.hex ?? "#cccccc" }))
 }
 
 /** Business address + store name from Settings (address falls back to the STORE_ADDRESS variable). */
@@ -90,9 +91,12 @@ export async function sendOrderEmail(orderId: string, key: "order_confirmation" 
 export async function sendWelcomeEmail(email: string) {
   if (!isLive || !emailConfigured()) return
   try {
+    // with the welcome code switched off there is nothing to hand out
+    const offer = await getWelcomeOffer()
+    if (!offer) return
     const tpl = await loadTemplate("welcome")
     if (!tpl.enabled) return
-    const vars = { name: "", first_name: "there", order_id: "", total: "", store_url: storeUrl(), discount_code: WELCOME_CODE }
+    const vars = { name: "", first_name: "there", order_id: "", total: "", store_url: storeUrl(), discount_code: offer.code }
     const { html, text } = renderEmail(tpl.doc, { vars, storeUrl: storeUrl(), ...(await brandInfo()), kind: "transactional", products: await productsLite() }, { subject: tpl.subject, preheader: tpl.preheader })
     const r = await sendEmail({ to: email, subject: tpl.subject, html, text })
     await log({ resend_id: r.ok ? r.id : undefined, kind: "welcome", to_email: email, status: r.ok ? "sent" : "failed", error: r.ok ? undefined : r.error })

@@ -181,7 +181,7 @@ function OrderDetail({ o }: { o: Order }) {
             <li key={i.productId} className="flex items-center gap-3 text-sm">
               <ProductThumb image={productById.get(i.productId)?.images[0]} color={i.colorHex} className="size-10 rounded-lg" />
               <div className="min-w-0 flex-1"><div className="truncate font-medium">{i.name}</div><div className="text-xs text-muted-foreground">{i.color} · {i.size} · Qty {i.qty}</div></div>
-              <span className="tabular">{money(i.price * i.qty)}</span>
+              <span className="tabular">{i.listPrice && i.listPrice > i.price && <s className="mr-1.5 text-muted-foreground">{money(i.listPrice * i.qty)}</s>}{money(i.price * i.qty)}</span>
             </li>
           ))}
         </ul>
@@ -189,6 +189,7 @@ function OrderDetail({ o }: { o: Order }) {
       <Separator />
       <dl className="flex flex-col gap-2 text-sm">
         <div className="flex justify-between"><dt className="text-muted-foreground">Subtotal</dt><dd className="tabular">{money(o.subtotal)}</dd></div>
+        {(o.saleDiscount ?? 0) > 0 && <div className="flex justify-between"><dt className="text-muted-foreground">Sale</dt><dd className="tabular">−{money(o.saleDiscount ?? 0)}</dd></div>}
         {o.discount > 0 && <div className="flex justify-between"><dt className="text-muted-foreground">Discount ({o.discountCode})</dt><dd className="tabular">−{money(o.discount)}</dd></div>}
         <div className="flex justify-between"><dt className="text-muted-foreground">Shipping</dt><dd className="tabular">{o.shipping ? money(o.shipping) : "Free"}</dd></div>
         <div className="flex justify-between border-t pt-2 font-semibold"><dt>Total</dt><dd className="tabular">{money(o.total)}</dd></div>

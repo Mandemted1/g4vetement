@@ -1,7 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { isSoldOut, pad, price, type ShopProduct } from "@/lib/store"
+import { isSoldOut, onSale, pad, type ShopProduct } from "@/lib/store"
+import { PriceTag } from "./price-tag"
 import { useCart } from "./cart"
 import { ProductMedia } from "./product-media"
 import { cn } from "@/lib/utils"
@@ -25,11 +26,11 @@ export function ProductCard({ product: p, className, ratio = "aspect-[4/5]", pri
             </div>
           )}
           <span className="label absolute left-3 top-3">{showIndex ? pad(p.index) : ""}</span>
-          {(sold || low) && <span className="label absolute right-3 top-3">{sold ? "Sold out" : `${p.stock} left`}</span>}
+          {(sold || low || onSale(p)) && <span className="label absolute right-3 top-3">{sold ? "Sold out" : low ? `${p.stock} left` : `−${p.salePercent}%`}</span>}
         </div>
         <div className="mt-3 flex items-baseline justify-between gap-4">
           <span className="text-[13px] leading-tight">{p.name}</span>
-          <span className="label shrink-0">{price(p.price)}</span>
+          <PriceTag p={p} className="label shrink-0" />
         </div>
         <p className="label mt-1 text-[var(--mute)]">{p.colors.length} {p.colors.length === 1 ? "colour" : "colours"}</p>
       </Link>

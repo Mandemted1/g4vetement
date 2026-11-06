@@ -11,6 +11,11 @@ export interface SuccessData {
   orderId: string
   total: number
   discount: number
+  /** what automatic sales took off (already in the item prices) */
+  saleDiscount: number
+  shipping: number
+  /** after sale, before the code */
+  subtotal: number
   email: string
   items: { productId: string; name: string; color: string; colorHex: string; size: string; qty: number; price: number }[]
 }
@@ -53,9 +58,9 @@ export function OrderSuccess({ data, onClose }: { data: SuccessData | null; onCl
               <div>
                 <Check />
                 <p className="label mt-8 text-[var(--mute)]">Order confirmed</p>
-                <h2 className="mt-4 overflow-hidden text-[clamp(3.4rem,11vw,9rem)] font-medium leading-[0.86] tracking-[-0.06em]">
+                <h2 aria-label="Thank you." className="mt-4 overflow-hidden text-[clamp(3.4rem,11vw,9rem)] font-medium leading-[0.86] tracking-[-0.06em]">
                   {["Thank", "you."].map((w, i) => (
-                    <span key={w} className="mr-[0.2em] -mb-[0.16em] inline-block overflow-hidden pb-[0.16em] align-bottom">
+                    <span key={w} aria-hidden className="mr-[0.2em] -mb-[0.16em] inline-block overflow-hidden pb-[0.16em] align-bottom">
                       <motion.span className="inline-block" initial={{ y: "110%" }} animate={{ y: 0 }} transition={{ duration: 1.1, delay: 0.7 + i * 0.1, ease: EASE }}>
                         {w}
                       </motion.span>
@@ -99,9 +104,10 @@ export function OrderSuccess({ data, onClose }: { data: SuccessData | null; onCl
                 })}
               </ul>
               <dl className="label mt-5 space-y-2">
-                {data.discount > 0 && (
-                  <div className="flex justify-between"><dt>Discount</dt><dd>−{price(data.discount)}</dd></div>
-                )}
+                <div className="flex justify-between"><dt>Subtotal</dt><dd>{price(data.subtotal + data.saleDiscount)}</dd></div>
+                {data.saleDiscount > 0 && <div className="flex justify-between"><dt>Sale</dt><dd>−{price(data.saleDiscount)}</dd></div>}
+                {data.discount > 0 && <div className="flex justify-between"><dt>Discount</dt><dd>−{price(data.discount)}</dd></div>}
+                <div className="flex justify-between"><dt>Shipping</dt><dd>{data.shipping ? price(data.shipping) : "Free"}</dd></div>
                 <div className="flex justify-between text-[12px]"><dt>Total</dt><dd>{price(data.total)}</dd></div>
               </dl>
             </motion.aside>

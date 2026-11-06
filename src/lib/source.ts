@@ -53,10 +53,11 @@ const toOrder = (r: any): Order => ({
   number: r.number,
   date: r.created_at,
   customerId: r.customer_id,
-  items: (r.order_items ?? []).map((i: any) => ({ productId: i.product_id, name: i.name, size: i.size, color: i.color, colorHex: i.color_hex, qty: i.qty, price: i.price })),
+  items: (r.order_items ?? []).map((i: any) => ({ productId: i.product_id, name: i.name, size: i.size, color: i.color, colorHex: i.color_hex, qty: i.qty, price: i.price, listPrice: i.list_price ?? i.price })),
   subtotal: r.subtotal,
   discount: r.discount,
   discountCode: r.discount_code,
+  saleDiscount: r.sale_discount ?? 0,
   shipping: r.shipping,
   total: r.total,
   status: r.status as OrderStatus,
@@ -98,14 +99,34 @@ export async function getCategoryNames(products: Product[]): Promise<string[]> {
   }
 }
 
-/** Products for the storefront. Never throws: falls back to demo data if the database is unreachable. */
+interface RunningSale { name: string; percent: number; scope: string; categories: string[] | null; product_ids: string[] | null; ends_at: string | null }
+
+/** Applies the best running sale to each product (same rounding as the database). */
+export function applySales(products: Product[], sales: RunningSale[]): Product[] {
+  if (!sales.length) return products
+  return products.map((p) => {
+    let best: RunningSale | null = null
+    for (const s of sales) {
+      const hit = s.scope === "all" || (s.scope === "categories" && s.categories?.includes(p.category)) || (s.scope === "products" && s.product_ids?.includes(p.id))
+      if (hit && (!best || s.percent > best.percent)) best = s
+    }
+    if (!best) return p
+    return { ...p, salePrice: p.price - Math.round((p.price * best.percent) / 100), salePercent: best.percent, saleName: best.name, saleEndsAt: best.ends_at }
+  })
+}
+
+/** Products for the storefront, with any running sale applied. Never throws: falls back to demo data if the database is unreachable. */
 export async function getCatalog(): Promise<Product[]> {
   if (!isLive) return demoProducts()
   try {
-    const { data, error } = await anonClient().from("products").select("*").eq("active", true).order("sort").order("created_at")
+    const db = anonClient()
+    const [{ data, error }, sales] = await Promise.all([
+      db.from("products").select("*").eq("active", true).order("sort").order("created_at"),
+      db.rpc("public_sales").then((r) => (r.error ? [] : (r.data as RunningSale[]))),
+    ])
     if (error) throw new Error(error.message)
     if (!data?.length) return demoProducts()
-    return data.map(toProduct)
+    return applySales(data.map(toProduct), sales)
   } catch (e) {
     console.error("[catalog] falling back to demo data:", e)
     return demoProducts()

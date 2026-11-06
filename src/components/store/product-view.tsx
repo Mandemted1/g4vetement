@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react"
 import { track } from "@/lib/track"
 import { AnimatePresence, motion, useAnimationControls } from "motion/react"
-import { isSoldOut, pad, price, type ShopProduct } from "@/lib/store"
+import { isSoldOut, onSale, pad, price, unitPrice, type ShopProduct } from "@/lib/store"
+import { PriceTag } from "./price-tag"
 import { useCart } from "./cart"
 import { Magnetic, Rise } from "./fx"
 import { ProductMedia } from "./product-media"
@@ -53,7 +54,10 @@ export function ProductView({ product: p, related }: { product: ShopProduct; rel
               <span>No. {pad(p.index)}</span>
             </div>
             <Rise as="h1" text={p.name} className="mt-5 text-[clamp(2.4rem,4.6vw,4.4rem)] font-medium leading-[0.92] tracking-[-0.05em]" />
-            <p className="mt-5 text-lg font-medium tracking-tight">{price(p.price)}</p>
+            <p className="mt-5 flex flex-wrap items-baseline gap-x-3 text-lg font-medium tracking-tight">
+              <PriceTag p={p} strikeClassName="font-normal" />
+              {onSale(p) && <span className="label font-normal">−{p.salePercent}%{p.saleName ? ` · ${p.saleName}` : ""}</span>}
+            </p>
             <p className="mt-5 max-w-[42ch] text-[13px] leading-relaxed text-[var(--mute)]">{p.description}</p>
 
             <div className="mt-9 border-t pt-5">
@@ -84,7 +88,7 @@ export function ProductView({ product: p, related }: { product: ShopProduct; rel
                 <span className="relative inline-block mix-blend-difference">
                   <AnimatePresence mode="wait" initial={false}>
                     <motion.span key={sold ? "s" : added ? "a" : "d"} className="inline-block" initial={{ y: 14, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -14, opacity: 0 }} transition={{ duration: 0.25 }}>
-                      {sold ? "Sold out" : added ? "Added to bag" : `Add to bag — ${price(p.price)}`}
+                      {sold ? "Sold out" : added ? "Added to bag" : `Add to bag — ${price(unitPrice(p))}`}
                     </motion.span>
                   </AnimatePresence>
                 </span>

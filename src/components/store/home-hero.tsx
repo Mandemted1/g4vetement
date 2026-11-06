@@ -3,7 +3,8 @@
 import { useRef } from "react"
 import Link from "next/link"
 import { motion, useMotionValue, useScroll, useSpring, useTransform, type MotionValue } from "motion/react"
-import { price, type ShopProduct } from "@/lib/store"
+import { type ShopProduct } from "@/lib/store"
+import { PriceTag } from "./price-tag"
 import { useCatalog } from "./catalog"
 import { ProductMedia } from "./product-media"
 import { Magnetic, useIntroReady } from "./fx"
@@ -91,7 +92,7 @@ function Floater({ p, cls, depth, speed, i, ready, mx, my, scroll }: { p: ShopPr
           </motion.div>
           <motion.div className="label flex justify-between gap-3 bg-[var(--paper)] pt-2" initial={{ opacity: 0 }} animate={ready ? { opacity: 1 } : {}} transition={{ delay: 0.9 + i * 0.14, duration: 0.8 }}>
             <span>{p.name}</span>
-            <span>{price(p.price)}</span>
+            <PriceTag p={p} />
           </motion.div>
         </Link>
       </motion.div>

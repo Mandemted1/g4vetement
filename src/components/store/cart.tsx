@@ -3,8 +3,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { AnimatePresence, motion } from "motion/react"
-import { FREE_SHIPPING_AT, SHIPPING, WELCOME_CODE, WELCOME_MIN, WELCOME_OFF, price } from "@/lib/store"
-import { placeOrder } from "@/app/(store)/actions"
+import { FREE_SHIPPING_AT, onSale, price, unitPrice } from "@/lib/store"
+import { placeOrder, quoteOrder, type QuoteResult } from "@/app/(store)/actions"
+import { cn } from "@/lib/utils"
 import { useCatalog } from "./catalog"
 import { OrderSuccess, type SuccessData } from "./order-success"
 import { track } from "@/lib/track"
@@ -106,7 +107,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const clear = useCallback(() => setLines([]), [])
 
   const count = lines.reduce((s, l) => s + l.qty, 0)
-  const subtotal = lines.reduce((s, l) => s + l.qty * (shopById.get(l.productId)?.price ?? 0), 0)
+  const subtotal = lines.reduce((s, l) => s + l.qty * unitPrice(shopById.get(l.productId) ?? { price: 0 }), 0)
   const value = useMemo(() => ({ lines, count, subtotal, open, setOpen, add, setQty, clear, bumped, showSuccess: setSuccess }), [lines, count, subtotal, open, add, setQty, clear, bumped])
 
   return (
@@ -151,13 +152,16 @@ function FlightLayer({ flights, done }: { flights: Flight[]; done: (id: number) 
 }
 
 function CartDrawer() {
-  const { lines, open, setOpen, subtotal, setQty, clear, count, showSuccess } = useCart()
+  const { lines, open, setOpen, setQty, clear, count, showSuccess } = useCart()
   const { shopById } = useCatalog()
   const [step, setStep] = useState<"bag" | "details">("bag")
   const [form, setForm] = useState({ name: "", email: "", city: "", state: "" })
-  const [code, setCode] = useState("")
+  const [typed, setTyped] = useState("")
+  const [applied, setApplied] = useState("")
+  const [showCode, setShowCode] = useState(false)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<{ key: string; r: QuoteResult } | null>(null)
 
   // pick up the code handed out by the welcome popup
   useEffect(() => {
@@ -165,15 +169,36 @@ function CartDrawer() {
     try {
       const c = localStorage.getItem("g4-code")
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (c) setCode((v) => v || c)
+      if (c) setApplied((v) => v || c)
     } catch {}
   }, [open])
 
-  const codeOk = code.trim().toUpperCase() === WELCOME_CODE && subtotal >= WELCOME_MIN
-  const discount = codeOk ? WELCOME_OFF : 0
-  const shipping = subtotal === 0 || subtotal >= FREE_SHIPPING_AT ? 0 : SHIPPING
-  const total = subtotal - discount + shipping
-  const toFree = Math.max(0, FREE_SHIPPING_AT - subtotal)
+  // The database prices the bag: sales, code, shipping and total. Re-asked whenever the bag, code or email changes.
+  const email = step === "details" ? form.email.trim() : ""
+  const key = JSON.stringify({ l: lines.map((l) => [l.productId, l.size, l.color, l.qty]), c: applied, e: email })
+  useEffect(() => {
+    if (!open || lines.length === 0) return
+    let alive = true
+    const t = window.setTimeout(async () => {
+      const r = await quoteOrder({ email, code: applied || undefined, items: lines.map((l) => ({ productId: l.productId, size: l.size, color: l.color, qty: l.qty })) })
+      if (alive) setResult({ key, r })
+    }, 250)
+    return () => {
+      alive = false
+      window.clearTimeout(t)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, open])
+
+  const loading = lines.length > 0 && result?.key !== key
+  const q = result?.r.ok ? result.r.quote : null
+  const bagError = result && !result.r.ok && result.key === key ? result.r.error : ""
+  // until the first answer arrives, show what we can work out locally
+  const localSubtotal = lines.reduce((s, l) => s + l.qty * unitPrice(shopById.get(l.productId) ?? { price: 0 }), 0)
+  const subtotalNow = q?.subtotal ?? localSubtotal
+  const total = q?.total ?? localSubtotal
+  const toFree = Math.max(0, FREE_SHIPPING_AT - subtotalNow)
+  const freeShip = q ? q.shipping === 0 : subtotalNow >= FREE_SHIPPING_AT
 
   useEffect(() => {
     if (!open) return
@@ -190,13 +215,27 @@ function CartDrawer() {
     }, 500)
   }
 
+  const apply = () => {
+    const c = typed.trim().toUpperCase()
+    if (!c) return
+    setApplied(c)
+    setTyped("")
+    setShowCode(false)
+  }
+  const removeCode = () => {
+    setApplied("")
+    try {
+      localStorage.removeItem("g4-code")
+    } catch {}
+  }
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setBusy(true)
     setError("")
     const r = await placeOrder({
       ...form,
-      code: code.trim() || undefined,
+      code: applied || undefined,
       items: lines.map((l) => ({ productId: l.productId, size: l.size, color: l.color, qty: l.qty })),
     })
     setBusy(false)
@@ -209,19 +248,27 @@ function CartDrawer() {
       orderId: r.orderId,
       total: r.total,
       discount: r.discount,
+      saleDiscount: r.saleDiscount,
+      shipping: r.shipping,
+      subtotal: r.subtotal,
       email: form.email,
-      items: lines.map((l) => ({ productId: l.productId, name: shopById.get(l.productId)?.name ?? "Item", color: l.color, colorHex: l.colorHex, size: l.size, qty: l.qty, price: shopById.get(l.productId)?.price ?? 0 })),
+      items: lines.map((l) => {
+        const p = shopById.get(l.productId)
+        return { productId: l.productId, name: p?.name ?? "Item", color: l.color, colorHex: l.colorHex, size: l.size, qty: l.qty, price: p ? unitPrice(p) : 0 }
+      }),
     })
     clear()
     setOpen(false)
     window.setTimeout(() => {
       setStep("bag")
       setForm({ name: "", email: "", city: "", state: "" })
-      setCode("")
+      setApplied("")
+      setTyped("")
     }, 600)
   }
 
   const input = "w-full border-b bg-transparent py-3 text-[15px] outline-none transition-colors placeholder:text-[var(--mute)] focus:border-[var(--ink)]"
+  const canCheckout = !loading && !bagError && lines.length > 0
 
   return (
     <AnimatePresence>
@@ -255,44 +302,73 @@ function CartDrawer() {
             ) : (
               <>
                 <div className="border-b px-5 py-3">
-                  <p className="label">{toFree > 0 ? `${price(toFree)} away from free shipping` : "Free shipping unlocked"}</p>
+                  <p className="label">{freeShip ? "Free shipping unlocked" : `${price(toFree)} away from free shipping`}</p>
                   <div className="mt-2 h-px w-full bg-[var(--line)]">
-                    <motion.div className="h-px bg-[var(--ink)]" animate={{ width: `${Math.min(100, (subtotal / FREE_SHIPPING_AT) * 100)}%` }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }} />
+                    <motion.div className="h-px bg-[var(--ink)]" animate={{ width: `${freeShip ? 100 : Math.min(100, (subtotalNow / FREE_SHIPPING_AT) * 100)}%` }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }} />
                   </div>
                 </div>
 
                 {step === "bag" ? (
-                  <ul data-lenis-prevent className="flex-1 overflow-y-auto">
-                    <AnimatePresence initial={false}>
-                      {lines.map((l) => {
-                        const p = shopById.get(l.productId)
-                        if (!p) return null
-                        return (
-                          <motion.li key={l.key} layout initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }} className="overflow-hidden border-b">
-                            <div className="flex gap-4 p-5">
-                              <Link href={p.href} onClick={close} className="relative block h-28 w-24 shrink-0 overflow-hidden">
-                                <ProductMedia product={p} color={l.colorHex} sizes="96px" />
-                              </Link>
-                              <div className="flex min-w-0 flex-1 flex-col justify-between">
-                                <div>
-                                  <div className="flex justify-between gap-3 text-[13px]"><span>{p.name}</span><span className="label">{price(p.price * l.qty)}</span></div>
-                                  <p className="label mt-1.5 text-[var(--mute)]">{l.color} / {l.size}</p>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <div className="label flex items-center border">
-                                    <button aria-label="Decrease" onClick={() => setQty(l.key, l.qty - 1)} className="px-3 py-2">−</button>
-                                    <span className="w-5 text-center">{l.qty}</span>
-                                    <button aria-label="Increase" onClick={() => setQty(l.key, l.qty + 1)} className="px-3 py-2">+</button>
+                  <div data-lenis-prevent className="flex-1 overflow-y-auto">
+                    <ul>
+                      <AnimatePresence initial={false}>
+                        {lines.map((l) => {
+                          const p = shopById.get(l.productId)
+                          if (!p) return null
+                          return (
+                            <motion.li key={l.key} layout initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }} className="overflow-hidden border-b">
+                              <div className="flex gap-4 p-5">
+                                <Link href={p.href} onClick={close} className="relative block h-28 w-24 shrink-0 overflow-hidden">
+                                  <ProductMedia product={p} color={l.colorHex} sizes="96px" />
+                                </Link>
+                                <div className="flex min-w-0 flex-1 flex-col justify-between">
+                                  <div>
+                                    <div className="flex justify-between gap-3 text-[13px]">
+                                      <span>{p.name}</span>
+                                      <span className="label shrink-0 text-right">
+                                        {onSale(p) && <s className="mr-1.5 text-[var(--mute)]">{price(p.price * l.qty)}</s>}
+                                        {price(unitPrice(p) * l.qty)}
+                                      </span>
+                                    </div>
+                                    <p className="label mt-1.5 text-[var(--mute)]">{l.color} / {l.size}{onSale(p) ? ` / ${p.salePercent}% off` : ""}</p>
                                   </div>
-                                  <button onClick={() => setQty(l.key, 0)} className="label text-[var(--mute)]"><span className="u">Remove</span></button>
+                                  <div className="flex items-center justify-between">
+                                    <div className="label flex items-center border">
+                                      <button aria-label="Decrease" onClick={() => setQty(l.key, l.qty - 1)} className="px-3 py-2">−</button>
+                                      <span className="w-5 text-center">{l.qty}</span>
+                                      <button aria-label="Increase" onClick={() => setQty(l.key, l.qty + 1)} className="px-3 py-2">+</button>
+                                    </div>
+                                    <button onClick={() => setQty(l.key, 0)} className="label text-[var(--mute)]"><span className="u">Remove</span></button>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </motion.li>
-                        )
-                      })}
-                    </AnimatePresence>
-                  </ul>
+                            </motion.li>
+                          )
+                        })}
+                      </AnimatePresence>
+                    </ul>
+
+                    {/* discount code */}
+                    <div className="px-5 py-5">
+                      {applied ? (
+                        <div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="label border border-dashed border-[var(--ink)] px-2.5 py-1.5">{applied}{q?.code && q.discount > 0 ? ` · −${price(q.discount)}` : q?.code && q.freeShipping ? " · Free shipping" : ""}</span>
+                            <button onClick={removeCode} className="label text-[var(--mute)]"><span className="u">Remove</span></button>
+                          </div>
+                          {q?.codeError && <p className="label mt-2.5 leading-relaxed text-[#b3261e]">{q.codeError}</p>}
+                          {q?.codeNote && !q.codeError && <p className="label mt-2.5 text-[var(--mute)]">{q.codeNote}</p>}
+                        </div>
+                      ) : showCode ? (
+                        <form onSubmit={(e) => { e.preventDefault(); apply() }} className="flex items-end gap-3 border-b border-[var(--ink)]">
+                          <input autoFocus value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Discount code" aria-label="Discount code" className="w-full bg-transparent py-2.5 text-[15px] uppercase outline-none placeholder:normal-case placeholder:text-[var(--mute)]" />
+                          <button type="submit" disabled={!typed.trim()} className="label shrink-0 pb-2.5 disabled:opacity-40"><span className="u">Apply</span></button>
+                        </form>
+                      ) : (
+                        <button onClick={() => setShowCode(true)} className="label text-[var(--mute)]"><span className="u">+ Add a discount code</span></button>
+                      )}
+                    </div>
+                  </div>
                 ) : (
                   <form id="checkout" onSubmit={submit} data-lenis-prevent className="flex-1 space-y-1 overflow-y-auto p-5">
                     <p className="label mb-3 text-[var(--mute)]">Your details</p>
@@ -302,33 +378,35 @@ function CartDrawer() {
                       <input className={input} placeholder="City" autoComplete="address-level2" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
                       <input className={input} placeholder="State" autoComplete="address-level1" maxLength={2} value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase() })} />
                     </div>
-                    <p className="label !mt-7 text-[var(--mute)]">Discount code</p>
-                    <input className={input} placeholder="Code" value={code} onChange={(e) => setCode(e.target.value)} />
-                    {code.trim().toUpperCase() === WELCOME_CODE && (
-                      <p className="label !mt-2">{codeOk ? `${WELCOME_CODE} applied: ${price(WELCOME_OFF)} off` : `Add ${price(WELCOME_MIN - subtotal)} more to use ${WELCOME_CODE}`}</p>
+                    {applied && (
+                      <p className={cn("label !mt-6 leading-relaxed", q?.codeError ? "text-[#b3261e]" : "")}>
+                        {q?.codeError ? `${applied}: ${q.codeError}` : q?.code ? `${applied} applied` : `${applied}…`}
+                      </p>
                     )}
-                    {error && <p className="label !mt-5 text-[#b3261e]">{error}</p>}
+                    {(error || bagError) && <p className="label !mt-5 leading-relaxed text-[#b3261e]">{error || bagError}</p>}
                   </form>
                 )}
 
                 <div className="border-t p-5">
-                  <dl className="label space-y-2">
-                    <div className="flex justify-between"><dt>Subtotal</dt><dd>{price(subtotal)}</dd></div>
-                    {discount > 0 && <div className="flex justify-between"><dt>Discount</dt><dd>−{price(discount)}</dd></div>}
-                    <div className="flex justify-between"><dt>Shipping</dt><dd>{shipping ? price(shipping) : "Free"}</dd></div>
+                  <dl className={cn("label space-y-2 transition-opacity", loading && "opacity-50")} aria-busy={loading}>
+                    <div className="flex justify-between"><dt>Subtotal</dt><dd>{price(q?.listSubtotal ?? localSubtotal)}</dd></div>
+                    {q && q.saleDiscount > 0 && <div className="flex justify-between"><dt>Sale</dt><dd>−{price(q.saleDiscount)}</dd></div>}
+                    {q && q.discount > 0 && <div className="flex justify-between"><dt>Discount{q.code ? ` (${q.code})` : ""}</dt><dd>−{price(q.discount)}</dd></div>}
+                    <div className="flex justify-between"><dt>Shipping</dt><dd>{q ? (q.shipping ? price(q.shipping) : "Free") : "–"}</dd></div>
                     <div className="flex justify-between pt-1 text-[12px]"><dt>Total</dt><dd>{price(total)}</dd></div>
                   </dl>
                   {step === "bag" ? (
-                    <button onClick={() => { track("checkout_start"); setStep("details") }} data-cursor="NEXT" className="label group relative mt-5 w-full overflow-hidden bg-[var(--ink)] py-4 text-[var(--paper)]">
+                    <button onClick={() => { track("checkout_start"); setStep("details") }} disabled={!canCheckout} data-cursor="NEXT" className="label group relative mt-5 w-full overflow-hidden bg-[var(--ink)] py-4 text-[var(--paper)] disabled:opacity-60">
                       <span className="absolute inset-0 origin-bottom scale-y-0 bg-[var(--paper)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-y-100" />
-                      <span className="relative mix-blend-difference">Checkout — {price(total)}</span>
+                      <span className="relative mix-blend-difference">{bagError ? "Update your bag" : `Checkout — ${price(total)}`}</span>
                     </button>
                   ) : (
-                    <button form="checkout" type="submit" disabled={busy} data-cursor="PAY" className="label group relative mt-5 w-full overflow-hidden bg-[var(--ink)] py-4 text-[var(--paper)] disabled:opacity-60">
+                    <button form="checkout" type="submit" disabled={busy || !canCheckout || Boolean(q?.codeError)} data-cursor="PAY" className="label group relative mt-5 w-full overflow-hidden bg-[var(--ink)] py-4 text-[var(--paper)] disabled:opacity-60">
                       <span className="absolute inset-0 origin-bottom scale-y-0 bg-[var(--paper)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-y-100" />
                       <span className="relative mix-blend-difference">{busy ? "Placing order…" : `Place order — ${price(total)}`}</span>
                     </button>
                   )}
+                  {bagError && step === "bag" && <p className="label mt-3 leading-relaxed text-[#b3261e]">{bagError}</p>}
                 </div>
               </>
             )}

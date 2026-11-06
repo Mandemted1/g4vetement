@@ -120,8 +120,8 @@ export function getDashboard(range: Range, data: AdminData) {
   })
   const channels = [...chMap.entries()].map(([name, v]) => ({ name, ...v })).sort((a, b) => b.revenue - a.revenue)
 
-  const grossSales = curB.reduce((s, o) => s + o.subtotal, 0)
-  const discounts = curB.reduce((s, o) => s + o.discount, 0)
+  const grossSales = curB.reduce((s, o) => s + o.subtotal + (o.saleDiscount ?? 0), 0)
+  const discounts = curB.reduce((s, o) => s + o.discount + (o.saleDiscount ?? 0), 0)
   const shipping = curB.reduce((s, o) => s + o.shipping, 0)
 
   return {

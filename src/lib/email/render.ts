@@ -21,6 +21,8 @@ export interface ProductLite {
   id: string
   name: string
   price: number
+  /** shown struck through when higher than price (a sale) */
+  listPrice?: number
   image?: string
   color: string
 }
@@ -92,7 +94,7 @@ function block(b: Block, d: EmailDoc, c: RenderContext): string {
         const pic = p.image
           ? `<img src="${esc(cloudinaryUrl(p.image.startsWith("/") ? c.storeUrl + p.image : p.image, { w: 512, f: "jpg" }))}" alt="${esc(p.name)}" width="256" style="display:block;width:100%;height:auto;border:0;">`
           : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#e2e1dc;"><tr><td align="center" valign="middle" height="220" style="height:220px;"><div style="width:64px;height:64px;background:${esc(p.color)};border:1px solid rgba(13,13,13,0.2);font-size:0;line-height:0;">&nbsp;</div></td></tr></table>`
-        return `<td class="col" width="50%" valign="top" style="padding:0 6px 18px;"><a href="${href}" style="text-decoration:none;color:${ink};">${pic}<div style="padding-top:10px;font-family:${FONT};font-size:14px;color:${ink};">${esc(p.name)}</div><div style="padding-top:3px;font-family:${MONO};font-size:11px;letter-spacing:0.06em;color:${mute};">${usd(p.price)}</div></a></td>`
+        return `<td class="col" width="50%" valign="top" style="padding:0 6px 18px;"><a href="${href}" style="text-decoration:none;color:${ink};">${pic}<div style="padding-top:10px;font-family:${FONT};font-size:14px;color:${ink};">${esc(p.name)}</div><div style="padding-top:3px;font-family:${MONO};font-size:11px;letter-spacing:0.06em;color:${mute};">${p.listPrice && p.listPrice > p.price ? `<span style="text-decoration:line-through;opacity:0.6;margin-right:6px;">${usd(p.listPrice)}</span>` : ""}${usd(p.price)}</div></a></td>`
       }
       const rows: string[] = []
       for (let i = 0; i < list.length; i += 2) rows.push(`<tr>${cell(list[i])}${list[i + 1] ? cell(list[i + 1]) : '<td class="col" width="50%"></td>'}</tr>`)
