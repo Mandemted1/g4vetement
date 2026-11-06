@@ -7,7 +7,7 @@ import { useCatalog } from "./catalog"
 import { Reveal } from "./fx"
 
 export function StoreFooter() {
-  const { categories } = useCatalog()
+  const { categories, store, policyLinks } = useCatalog()
   const [email, setEmail] = useState("")
   const [sent, setSent] = useState(false)
   const [error, setError] = useState("")
@@ -45,12 +45,20 @@ export function StoreFooter() {
           </ul>
         </Reveal>
         <Reveal delay={0.2} className="md:col-span-2">
-          <p className="label text-[var(--mute)]">Store</p>
+          <p className="label text-[var(--mute)]">Help</p>
           <ul className="label mt-4 space-y-2.5">
-            <li>USD</li>
+            {policyLinks.map((l) => (
+              <li key={l.slug}><Link href={`/policies/${l.slug}`} className="u">{l.title}</Link></li>
+            ))}
+            {store.email && <li><a href={`mailto:${store.email}`} className="u break-all">Contact</a></li>}
+            {store.instagram && <li><a href={`https://instagram.com/${store.instagram}`} target="_blank" rel="noreferrer" className="u">Instagram</a></li>}
+            {store.tiktok && <li><a href={`https://tiktok.com/@${store.tiktok}`} target="_blank" rel="noreferrer" className="u">TikTok</a></li>}
           </ul>
         </Reveal>
       </div>
+      {(store.address || store.phone) && (
+        <p className="label mb-12 mt-16 max-w-[44ch] whitespace-pre-line text-[var(--mute)]">{[store.address, store.phone].filter(Boolean).join("\n")}</p>
+      )}
       <div className="pointer-events-none select-none text-[43vw] font-semibold leading-[0.74] tracking-[-0.07em] md:text-[34vw]" aria-hidden>
         G4
       </div>

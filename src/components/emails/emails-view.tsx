@@ -12,11 +12,11 @@ import { cn } from "@/lib/utils"
 
 const KIND: Record<string, string> = { campaign: "Campaign", order_confirmation: "Order confirmation", order_shipped: "Order shipped", welcome: "Welcome", test: "Test" }
 
-export function EmailsView({ templates, messages, config, tablesMissing }: { templates: TemplateItem[]; messages: MessageItem[]; config: ReturnType<typeof emailConfig>; tablesMissing: boolean }) {
+export function EmailsView({ templates, messages, config, tablesMissing }: { templates: TemplateItem[]; messages: MessageItem[]; config: Awaited<ReturnType<typeof emailConfig>>; tablesMissing: boolean }) {
   const issues: string[] = []
   if (!config.configured) issues.push("RESEND_API_KEY isn't set, so no emails can be sent.")
   if (config.testMode) issues.push("You're using Resend's test sender, which only delivers to your own email. Verify a domain at resend.com/domains and set EMAIL_FROM to send to customers.")
-  if (!config.hasAddress) issues.push("Add STORE_ADDRESS so marketing emails include your mailing address (required by anti-spam law in most countries).")
+  if (!config.hasAddress) issues.push("Add your business address in Settings, under Store details. Marketing emails must include it (required by anti-spam law in most countries).")
   if (!config.hasWebhook) issues.push("Add RESEND_WEBHOOK_SECRET and the webhook (see below) to track delivered, opened and clicked.")
   if (tablesMissing) issues.push("The email tables aren't installed yet. Run `npm run migrate`, or paste supabase/003_email_analytics.sql into the Supabase SQL editor.")
 

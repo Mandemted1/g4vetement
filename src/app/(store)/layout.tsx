@@ -7,6 +7,8 @@ import { StoreHeader } from "@/components/store/header"
 import { Tracker } from "@/components/store/tracker"
 import { WelcomePopup } from "@/components/store/welcome-popup"
 import { getCatalog, getCategoryNames } from "@/lib/source"
+import { getPolicies, getStoreSettings } from "@/lib/settings"
+import { POLICY_META } from "@/lib/settings-types"
 
 // Stock and prices change from the admin, so never serve a stale build.
 export const dynamic = "force-dynamic"
@@ -19,9 +21,11 @@ export const metadata: Metadata = {
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
   const products = await getCatalog()
   const categoryNames = await getCategoryNames(products)
+  const [store, policies] = await Promise.all([getStoreSettings(), getPolicies()])
+  const policyLinks = POLICY_META.filter((m) => policies[m.slug].trim()).map((m) => ({ slug: m.slug, title: m.title }))
   return (
     <div className="store min-h-dvh">
-      <CatalogProvider products={products} categoryNames={categoryNames}>
+      <CatalogProvider products={products} categoryNames={categoryNames} store={store} policyLinks={policyLinks}>
       <CartProvider>
         <Preloader />
         <SmoothScroll />

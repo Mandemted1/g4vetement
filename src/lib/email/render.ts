@@ -32,6 +32,8 @@ export interface RenderContext {
   /** marketing emails carry an unsubscribe link, transactional ones a short reason instead. */
   kind: "marketing" | "transactional"
   unsubscribeUrl?: string
+  /** shown as the brand mark and in the footer; defaults to G4 */
+  storeName?: string
   products?: ProductLite[]
   order?: OrderInfo
 }
@@ -111,10 +113,11 @@ function block(b: Block, d: EmailDoc, c: RenderContext): string {
 export function renderEmail(doc: EmailDoc, ctx: RenderContext, meta: { subject: string; preheader?: string }): { html: string; text: string } {
   const { bg, card, ink, mute } = doc.theme
   const marketing = ctx.kind === "marketing"
+  const brand = esc(ctx.storeName || "G4")
   const footer = marketing
-    ? `You&apos;re receiving this because you subscribed to G4.${ctx.unsubscribeUrl ? ` <a href="${esc(ctx.unsubscribeUrl)}" style="color:${mute};text-decoration:underline;">Unsubscribe</a>` : ""}`
-    : "You&apos;re receiving this because you placed an order at G4."
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${esc(fill(esc(meta.subject), ctx.vars).replace(/&amp;/g, "&"))}</title><style>@media only screen and (max-width:620px){.wrap{width:100%!important}.col{display:block!important;width:100%!important;box-sizing:border-box}}</style></head><body style="margin:0;padding:0;background:${bg};">${meta.preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${rich(meta.preheader, ctx.vars)}&#8199;&#847;&#8199;&#847;</div>` : ""}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${bg};"><tr><td align="center" style="padding:28px 12px;"><table role="presentation" class="wrap" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;background:${card};"><tr><td style="padding:34px 32px 18px;font-family:${FONT};font-size:34px;font-weight:700;letter-spacing:-0.07em;color:${ink};"><a href="${esc(ctx.storeUrl)}" style="color:${ink};text-decoration:none;">G4</a></td></tr>${doc.blocks.map((b) => block(b, doc, ctx)).join("")}<tr><td style="padding:34px 32px 30px;font-family:${MONO};font-size:10px;letter-spacing:0.07em;line-height:1.7;text-transform:uppercase;color:${mute};border-top:1px solid #d9d7d0;">${footer}${ctx.address ? `<br>${esc(ctx.address)}` : ""}</td></tr></table></td></tr></table></body></html>`
+    ? `You&apos;re receiving this because you subscribed to ${brand}.${ctx.unsubscribeUrl ? ` <a href="${esc(ctx.unsubscribeUrl)}" style="color:${mute};text-decoration:underline;">Unsubscribe</a>` : ""}`
+    : `You&apos;re receiving this because you placed an order at ${brand}.`
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${esc(fill(esc(meta.subject), ctx.vars).replace(/&amp;/g, "&"))}</title><style>@media only screen and (max-width:620px){.wrap{width:100%!important}.col{display:block!important;width:100%!important;box-sizing:border-box}}</style></head><body style="margin:0;padding:0;background:${bg};">${meta.preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${rich(meta.preheader, ctx.vars)}&#8199;&#847;&#8199;&#847;</div>` : ""}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${bg};"><tr><td align="center" style="padding:28px 12px;"><table role="presentation" class="wrap" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;background:${card};"><tr><td style="padding:34px 32px 18px;font-family:${FONT};font-size:34px;font-weight:700;letter-spacing:-0.07em;color:${ink};"><a href="${esc(ctx.storeUrl)}" style="color:${ink};text-decoration:none;">${brand}</a></td></tr>${doc.blocks.map((b) => block(b, doc, ctx)).join("")}<tr><td style="padding:34px 32px 30px;font-family:${MONO};font-size:10px;letter-spacing:0.07em;line-height:1.7;text-transform:uppercase;color:${mute};border-top:1px solid #d9d7d0;">${footer}${ctx.address ? `<br>${esc(ctx.address)}` : ""}</td></tr></table></td></tr></table></body></html>`
   return { html, text: toText(doc, ctx, meta.subject) }
 }
 

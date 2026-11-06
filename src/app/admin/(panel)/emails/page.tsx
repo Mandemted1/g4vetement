@@ -5,5 +5,5 @@ export const metadata = { title: "Emails" }
 
 export default async function Page() {
   const [{ items, tablesMissing }, messages] = await Promise.all([getTemplates(), getMessages()])
-  return <EmailsView templates={items} messages={messages} config={emailConfig()} tablesMissing={tablesMissing} />
+  return <EmailsView templates={items} messages={messages} config={await emailConfig()} tablesMissing={tablesMissing} />
 }

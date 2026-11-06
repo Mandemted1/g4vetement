@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils"
 const W = 1280
 const H = 800
 
-export function SettingsView({ initial }: { initial: LoginSettings }) {
+export function LoginSettingsCard({ initial }: { initial: LoginSettings }) {
   const [s, setS] = useState(initial)
   const [saved, setSaved] = useState(initial)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -59,13 +59,7 @@ export function SettingsView({ initial }: { initial: LoginSettings }) {
     })
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="rise">
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Change how your store&apos;s admin looks and behaves.</p>
-      </div>
-
-      <Card className="rise" style={{ "--i": 1 } as React.CSSProperties}>
+      <Card className="rise" style={{ "--i": 3 } as React.CSSProperties}>
         <CardHeader>
           <CardTitle>Login screen</CardTitle>
           <CardDescription>The page you see before signing in to the admin.</CardDescription>
@@ -150,6 +144,5 @@ export function SettingsView({ initial }: { initial: LoginSettings }) {
           </div>
         </CardContent>
       </Card>
-    </div>
   )
 }

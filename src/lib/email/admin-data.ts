@@ -2,7 +2,8 @@ import "server-only"
 import { sessionClient } from "@/lib/supabase/clients"
 import { isLive } from "@/lib/supabase/env"
 import { DEFAULT_CAMPAIGN, DEFAULT_TEMPLATES, TEMPLATE_META, type TemplateKey } from "./defaults"
-import { emailConfigured, fromAddress, storeAddress, storeUrl } from "./send"
+import { getAddressLine } from "@/lib/settings"
+import { emailConfigured, fromAddress, storeUrl } from "./send"
 import type { EmailDoc } from "./types"
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -43,8 +44,8 @@ export interface MessageItem {
   at: string
 }
 
-export function emailConfig() {
-  return { configured: emailConfigured(), from: fromAddress(), testMode: fromAddress().includes("resend.dev"), hasAddress: Boolean(storeAddress()), hasWebhook: Boolean(process.env.RESEND_WEBHOOK_SECRET), siteUrl: storeUrl() }
+export async function emailConfig() {
+  return { configured: emailConfigured(), from: fromAddress(), testMode: fromAddress().includes("resend.dev"), hasAddress: Boolean(await getAddressLine()), hasWebhook: Boolean(process.env.RESEND_WEBHOOK_SECRET), siteUrl: storeUrl() }
 }
 
 const emptyStats = () => ({ sent: 0, delivered: 0, opened: 0, clicked: 0, bounced: 0, failed: 0 })

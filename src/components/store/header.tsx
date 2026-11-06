@@ -11,7 +11,7 @@ const EASE = [0.76, 0, 0.24, 1] as const
 
 export function StoreHeader() {
   const { count, setOpen, bumped } = useCart()
-  const { shop, categories } = useCatalog()
+  const { shop, categories, policyLinks } = useCatalog()
   const [menu, setMenu] = useState(false)
   const [scrolled, setScrolled] = useState(false)
 
@@ -81,6 +81,11 @@ export function StoreHeader() {
             </ul>
             <motion.div className="mt-10 flex flex-wrap items-end justify-between gap-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9, duration: 0.6 }}>
               <p className="label max-w-[28ch] text-[var(--mute)]">Free shipping on orders over $100. $9 flat rate below.</p>
+              <div className="label flex flex-wrap gap-x-6 gap-y-2">
+                {policyLinks.map((l) => (
+                  <Link key={l.slug} href={`/policies/${l.slug}`} onClick={() => setMenu(false)} className="u">{l.title}</Link>
+                ))}
+              </div>
             </motion.div>
           </motion.nav>
         )}

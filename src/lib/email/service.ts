@@ -5,7 +5,8 @@ import { isLive } from "@/lib/supabase/env"
 import { WELCOME_CODE } from "@/lib/store"
 import { DEFAULT_TEMPLATES, type TemplateKey } from "./defaults"
 import { renderEmail, type OrderInfo, type ProductLite } from "./render"
-import { emailConfigured, sendBatch, sendEmail, storeAddress, storeUrl, type OutgoingEmail } from "./send"
+import { getAddressLine, getStoreSettings } from "@/lib/settings"
+import { emailConfigured, sendBatch, sendEmail, storeUrl, type OutgoingEmail } from "./send"
 import type { EmailDoc } from "./types"
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -32,6 +33,12 @@ export async function loadTemplate(key: TemplateKey): Promise<TemplateRow> {
 
 export async function productsLite(): Promise<ProductLite[]> {
   return (await getCatalog()).map((p) => ({ id: p.id, name: p.name, price: p.price, image: p.images[0], color: p.colors[0]?.hex ?? "#cccccc" }))
+}
+
+/** Business address + store name from Settings (address falls back to the STORE_ADDRESS variable). */
+async function brandInfo() {
+  const [address, store] = await Promise.all([getAddressLine(), getStoreSettings()])
+  return { address, storeName: store.name }
 }
 
 const firstName = (n: string) => n.trim().split(/\s+/)[0] || "there"
@@ -66,10 +73,11 @@ export async function sendOrderEmail(orderId: string, key: "order_confirmation" 
   try {
     const tpl = await loadTemplate(key)
     if (!tpl.enabled) return { ok: false as const, error: "Template disabled" }
+    const brand = await brandInfo()
     const o = await loadOrder(orderId)
     if (!o?.email) return { ok: false as const, error: "Order or customer email not found" }
     const vars = { name: o.name, first_name: firstName(o.name), order_id: o.id, total: `$${o.info.total}`, store_url: storeUrl(), discount_code: WELCOME_CODE }
-    const { html, text } = renderEmail(tpl.doc, { vars, storeUrl: storeUrl(), address: storeAddress(), kind: "transactional", order: o.info, products: await productsLite() }, { subject: tpl.subject, preheader: tpl.preheader })
+    const { html, text } = renderEmail(tpl.doc, { vars, storeUrl: storeUrl(), ...brand, kind: "transactional", order: o.info, products: await productsLite() }, { subject: tpl.subject, preheader: tpl.preheader })
     const subject = tpl.subject.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k: string) => (vars as Record<string, string>)[k] ?? "")
     const r = await sendEmail({ to: o.email, subject, html, text })
     await log({ resend_id: r.ok ? r.id : undefined, kind: key, to_email: o.email, status: r.ok ? "sent" : "failed", error: r.ok ? undefined : r.error })
@@ -85,7 +93,7 @@ export async function sendWelcomeEmail(email: string) {
     const tpl = await loadTemplate("welcome")
     if (!tpl.enabled) return
     const vars = { name: "", first_name: "there", order_id: "", total: "", store_url: storeUrl(), discount_code: WELCOME_CODE }
-    const { html, text } = renderEmail(tpl.doc, { vars, storeUrl: storeUrl(), address: storeAddress(), kind: "transactional", products: await productsLite() }, { subject: tpl.subject, preheader: tpl.preheader })
+    const { html, text } = renderEmail(tpl.doc, { vars, storeUrl: storeUrl(), ...(await brandInfo()), kind: "transactional", products: await productsLite() }, { subject: tpl.subject, preheader: tpl.preheader })
     const r = await sendEmail({ to: email, subject: tpl.subject, html, text })
     await log({ resend_id: r.ok ? r.id : undefined, kind: "welcome", to_email: email, status: r.ok ? "sent" : "failed", error: r.ok ? undefined : r.error })
   } catch {
@@ -166,11 +174,12 @@ export async function deliverCampaign(id: string): Promise<{ ok: true; sent: num
   await db.from("campaigns").update({ status: "sending", error: null, updated_at: new Date().toISOString() }).eq("id", id)
   const products = await productsLite()
   const base = storeUrl()
+  const brand = await brandInfo()
 
   const emails: OutgoingEmail[] = people.map((p) => {
     const unsub = `${base}/unsubscribe/${p.token}`
     const vars = { name: p.name, first_name: p.name ? firstName(p.name) : "there", order_id: "", total: "", store_url: base, discount_code: WELCOME_CODE }
-    const { html, text } = renderEmail(c.doc as EmailDoc, { vars, storeUrl: base, address: storeAddress(), kind: "marketing", unsubscribeUrl: unsub, products }, { subject: c.subject, preheader: c.preheader })
+    const { html, text } = renderEmail(c.doc as EmailDoc, { vars, storeUrl: base, ...brand, kind: "marketing", unsubscribeUrl: unsub, products }, { subject: c.subject, preheader: c.preheader })
     const subject = c.subject.replace(/\{\{\s*(\w+)\s*\}\}/g, (_: string, k: string) => (vars as Record<string, string>)[k] ?? "")
     return { to: p.email, subject, html, text, headers: { "List-Unsubscribe": `<${base}/api/unsubscribe?t=${p.token}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } }
   })
@@ -207,7 +216,7 @@ export async function sendTestEmail(to: string, doc: EmailDoc, subject: string, 
   sampleOrder.shipping = sampleOrder.subtotal >= 100 ? 0 : 9
   sampleOrder.total = sampleOrder.subtotal + sampleOrder.shipping
   const vars = { name: "Alex Morgan", first_name: "Alex", order_id: "G4-0000", total: `$${sampleOrder.total}`, store_url: base, discount_code: WELCOME_CODE }
-  const { html, text } = renderEmail(doc, { vars, storeUrl: base, address: storeAddress(), kind, unsubscribeUrl: `${base}/unsubscribe/test`, products, order: sampleOrder }, { subject, preheader })
+  const { html, text } = renderEmail(doc, { vars, storeUrl: base, ...(await brandInfo()), kind, unsubscribeUrl: `${base}/unsubscribe/test`, products, order: sampleOrder }, { subject, preheader })
   const r = await sendEmail({ to, subject: `[Test] ${subject.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k: string) => (vars as Record<string, string>)[k] ?? "")}`, html, text })
   await log({ resend_id: r.ok ? r.id : undefined, kind: "test", to_email: to, status: r.ok ? "sent" : "failed", error: r.ok ? undefined : r.error })
   return r

@@ -8,7 +8,8 @@ import { cloudinaryConfigured, uploadTicket } from "@/lib/cloudinary"
 import { sessionClient } from "@/lib/supabase/clients"
 import { isLive } from "@/lib/supabase/env"
 import type { GarmentType, OrderStatus } from "@/lib/data"
-import type { LoginSettings } from "@/lib/settings-types"
+import type { LoginSettings, Policies, StoreSettings } from "@/lib/settings-types"
+import { cleanPolicies, cleanStore } from "@/lib/settings-validate"
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string }
 const DEMO = { ok: false as const, error: "Demo mode: connect Supabase (see .env.example) to save changes." }
@@ -156,5 +157,29 @@ export async function saveLoginSettings(v: LoginSettings): Promise<Result> {
   if (error) return msg(error)
   revalidatePath("/admin/login")
   revalidatePath("/admin/settings")
+  return { ok: true }
+}
+
+export async function saveStoreSettings(v: StoreSettings): Promise<Result<{ saved: StoreSettings }>> {
+  if (!isLive) return DEMO
+  const db = await admin()
+  if (!db) return { ok: false, error: "Please sign in again." }
+  const c = cleanStore(v)
+  if (!c.ok) return c
+  const { error } = await db.from("site_settings").upsert({ key: "store", value: c.value, updated_at: new Date().toISOString() })
+  if (error) return msg(error)
+  revalidatePath("/", "layout")
+  return { ok: true, saved: c.value }
+}
+
+export async function savePolicies(v: Policies): Promise<Result> {
+  if (!isLive) return DEMO
+  const db = await admin()
+  if (!db) return { ok: false, error: "Please sign in again." }
+  const c = cleanPolicies(v)
+  if (!c.ok) return c
+  const { error } = await db.from("site_settings").upsert({ key: "policies", value: c.value, updated_at: new Date().toISOString() })
+  if (error) return msg(error)
+  revalidatePath("/", "layout")
   return { ok: true }
 }
