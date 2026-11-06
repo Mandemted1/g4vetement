@@ -35,6 +35,9 @@ export function OrdersView() {
   const [page, setPage] = useState(0)
   const [openId, setOpenId] = useState<string | null>(null)
   const open = orders.find((o) => o.id === openId) ?? null
+  const canPrint = useStaff().can("orders.manage")
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const flip = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n })
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: orders.length }
@@ -56,6 +59,9 @@ export function OrdersView() {
 
   const pages = Math.ceil(rows.length / PAGE)
   const view = rows.slice(page * PAGE, (page + 1) * PAGE)
+  const allOnPage = view.length > 0 && view.every((o) => picked.has(o.id))
+  const flipPage = () => setPicked((p) => { const n = new Set(p); view.forEach((o) => (allOnPage ? n.delete(o.id) : n.add(o.id))); return n })
+  const printHref = `/admin/packing-slips?ids=${encodeURIComponent([...picked].slice(0, 100).join(","))}`
   const toggle = (s: Sort) => { if (sort === s) setDesc(!desc); else { setSort(s); setDesc(true) } setPage(0) }
 
   return (
@@ -81,9 +87,17 @@ export function OrdersView() {
               <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(0) }} placeholder="Search order, name or email" className="pl-8" />
             </div>
           </div>
+          {canPrint && picked.size > 0 && (
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/40 px-3 py-2 text-sm" role="status">
+              <span>{picked.size} order{picked.size === 1 ? "" : "s"} selected</span>
+              <Button size="sm" render={<a href={printHref} target="_blank" rel="noopener noreferrer" />}>Print packing slips</Button>
+              <Button size="sm" variant="ghost" onClick={() => setPicked(new Set())}>Clear</Button>
+            </div>
+          )}
           <Table>
             <TableHeader>
               <TableRow>
+                {canPrint && <TableHead className="w-8"><input type="checkbox" aria-label="Select all orders on this page" checked={allOnPage} onChange={flipPage} /></TableHead>}
                 <TableHead>Order</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead className="hidden md:table-cell">Channel</TableHead>
@@ -97,6 +111,7 @@ export function OrdersView() {
                 const c = customerById.get(o.customerId) ?? { name: "Guest", email: "", id: "" }
                 return (
                   <TableRow key={o.id} className="cursor-pointer" onClick={() => setOpenId(o.id)}>
+                    {canPrint && <TableCell onClick={(e) => e.stopPropagation()}><input type="checkbox" aria-label={`Select order ${o.id}`} checked={picked.has(o.id)} onChange={() => flip(o.id)} /></TableCell>}
                     <TableCell className="font-medium">#{o.id}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2.5">
@@ -111,7 +126,7 @@ export function OrdersView() {
                   </TableRow>
                 )
               })}
-              {view.length === 0 && <TableRow><TableCell colSpan={6} className="py-12 text-center text-muted-foreground">No orders match your filters.</TableCell></TableRow>}
+              {view.length === 0 && <TableRow><TableCell colSpan={7} className="py-12 text-center text-muted-foreground">No orders match your filters.</TableCell></TableRow>}
             </TableBody>
           </Table>
           <Pager page={page} pages={pages} total={rows.length} size={PAGE} onPage={setPage} />
@@ -168,6 +183,7 @@ function OrderDetail({ o }: { o: Order }) {
         <SheetDescription>{dateLabel(o.date)} at {timeLabel(o.date)} · {o.channel}</SheetDescription>
       </SheetHeader>
       <div className="flex items-center justify-between"><StatusBadge status={o.status} /><span className="text-xl font-semibold tabular">{money(o.total)}</span></div>
+      {canManage && <Button variant="outline" render={<a href={`/admin/packing-slips?ids=${encodeURIComponent(o.id)}`} target="_blank" rel="noopener noreferrer" />}>Print packing slip</Button>}
       {!terminal && canManage && (
         <div className="flex flex-col gap-2">
           {o.status === "processing" && tracking !== "ship" && <Button disabled={busy} onClick={() => { setErr(""); setTracking("ship") }}>Mark as shipped…</Button>}

@@ -127,3 +127,11 @@ const cc = parseCsv(customersToCsv(cu)).rows
 ok("customers export has a row each with spend and tier", cc.length === 2 && cc[1][1] === "Alex, Jr" && cc[1][5] === "3" && cc[1][6] === "250" && cc[1][9] === "Loyal")
 ok("an empty export is just the header row", parseCsv(ordersToCsv([], custs, prods)).rows.length === 1 && parseCsv(customersToCsv([])).rows.length === 1)
 ok("toCsv is what writes these (sanity)", toCsv(["a"], [["x"]]).startsWith("﻿"))
+
+// ---- barcode on packing slips
+import { CODE39_PATTERNS, canCode39, code39 } from "../src/lib/code39"
+ok("every Code 39 pattern is 9 elements with exactly 3 wide, and none repeat", Object.values(CODE39_PATTERNS).every((p) => p.length === 9 && [...p].filter((c) => c === "w").length === 3) && new Set(Object.values(CODE39_PATTERNS)).size === Object.keys(CODE39_PATTERNS).length)
+const bc = code39("G4-2001")
+ok("an order id encodes: 9 characters (with start/stop) of 5 bars each; each character is 15 units wide, plus 8 gaps", !!bc && bc.bars.length === 45 && bc.width === 9 * 15 + 8, JSON.stringify(bc && { n: bc.bars.length, w: bc.width }))
+ok("bars never overlap and stay inside the width", !!bc && bc.bars.every((b, i) => i === 0 || b.x >= bc.bars[i - 1].x + bc.bars[i - 1].w + 1) && bc.bars.at(-1)!.x + bc.bars.at(-1)!.w === bc.width)
+ok("lower case is fine; unsupported text and the * marker are refused", canCode39("g4-2001") && !canCode39("a_b") && !canCode39("") && !canCode39("A*B") && code39("é") === null)
