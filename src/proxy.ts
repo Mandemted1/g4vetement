@@ -8,7 +8,11 @@ import { NextResponse, type NextRequest } from "next/server"
 export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !anon) return NextResponse.next()
+  if (!url || !anon) {
+    const { pathname } = request.nextUrl
+    if (process.env.VERCEL_ENV === "production" && pathname !== "/admin/login") return NextResponse.redirect(new URL("/admin/login", request.url))
+    return NextResponse.next()
+  }
 
   let response = NextResponse.next({ request })
   const supabase = createServerClient(url, anon, {

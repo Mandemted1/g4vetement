@@ -12,9 +12,9 @@ if (!url || !key) {
 }
 const db = createClient(url, key, { auth: { persistSession: false } })
 
-for (const t of ["products", "customers", "orders", "order_items", "subscribers"]) {
+for (const t of ["products", "customers", "orders", "order_items", "subscribers", "email_templates", "campaigns", "email_messages", "visits"]) {
   const { count, error } = await db.from(t).select("*", { count: "exact", head: true })
-  console.log(error ? `✗ ${t}: ${error.message}` : `✓ ${t}: ${count} rows`)
+  console.log(error || count === null ? `✗ ${t}: missing${error ? " (" + error.message + ")" : ""}` : `✓ ${t}: ${count} rows`)
 }
 
 const probe = await db.rpc("place_order", { p_name: "", p_email: "", p_city: null, p_state: null, p_items: [], p_code: null })
@@ -23,6 +23,11 @@ console.log(
     ? "✓ place_order() v2 (with discount code) is installed"
     : `✗ place_order() v2: ${probe.error?.message ?? "unexpected response"}`,
 )
+
+const live = await db.rpc("analytics_live")
+console.log(live.error ? `✗ analytics functions (003): ${live.error.message}` : "✓ analytics functions installed (003)")
+const sim = await db.from("orders").select("id", { count: "exact", head: true }).eq("sim", true)
+console.log(sim.error ? "✗ orders.sim column missing (003)" : `✓ orders flagged as demo: ${sim.count}`)
 
 const { data: buckets } = await db.storage.listBuckets()
 console.log(buckets?.some((b) => b.name === "products") ? "✓ storage bucket 'products' exists" : "✗ storage bucket 'products' missing")

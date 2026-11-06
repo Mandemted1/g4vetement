@@ -48,7 +48,6 @@ export function StoreFooter() {
           <p className="label text-[var(--mute)]">Store</p>
           <ul className="label mt-4 space-y-2.5">
             <li>USD</li>
-            <li><Link href="/admin" className="u">Admin</Link></li>
           </ul>
         </Reveal>
       </div>

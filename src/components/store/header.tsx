@@ -81,9 +81,6 @@ export function StoreHeader() {
             </ul>
             <motion.div className="mt-10 flex flex-wrap items-end justify-between gap-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9, duration: 0.6 }}>
               <p className="label max-w-[28ch] text-[var(--mute)]">Free shipping on orders over $100. $9 flat rate below.</p>
-              <div className="label flex gap-6">
-                <Link href="/admin" className="u">Admin</Link>
-              </div>
             </motion.div>
           </motion.nav>
         )}
