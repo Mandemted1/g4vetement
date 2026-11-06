@@ -147,3 +147,38 @@
 }
 .rise { animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: calc(var(--i, 0) * 60ms); }
 @media (prefers-reduced-motion: reduce) { .rise { animation: none; } }
+
+/* ---------- Storefront ---------- */
+.store {
+  --paper: #f3f2ef;
+  --paper-2: #e8e7e2;
+  --ink: #0d0d0d;
+  --mute: #8a8780;
+  --line: rgba(13, 13, 13, 0.14);
+  background: var(--paper);
+  color: var(--ink);
+  color-scheme: light;
+}
+.store * { border-color: var(--line); }
+.store ::selection { background: var(--ink); color: var(--paper); }
+.store .label {
+  font-family: var(--font-geist-mono);
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  line-height: 1.25;
+}
+.store.has-cursor, .store.has-cursor a, .store.has-cursor button, .store.has-cursor [role="button"] { cursor: none; }
+.store.has-cursor input, .store.has-cursor textarea { cursor: text; }
+.store .u {
+  background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat;
+  transition: background-size 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.store .u:hover, .store a:hover > .u, .store button:hover > .u { background-size: 100% 1px; }
+@keyframes marquee { to { transform: translateX(-50%); } }
+.store .marquee { animation: marquee 38s linear infinite; }
+.store .marquee:hover { animation-play-state: paused; }
+@keyframes bagbump { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-3px); } }
+.store .bump { animation: bagbump 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

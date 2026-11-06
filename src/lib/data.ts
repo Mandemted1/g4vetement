@@ -1,18 +1,25 @@
-import store from "@/data/store.json"
+/** Shared types + pure helpers. Data itself comes from src/lib/source.ts (server) and the providers. */
 
 export type OrderStatus = "pending" | "processing" | "shipped" | "delivered" | "cancelled" | "refunded"
 export type Category = "Tees" | "Hoodies & Sweats" | "Bottoms" | "Outerwear" | "Accessories"
+export type GarmentType = "tee" | "longsleeve" | "hoodie" | "zip" | "sweat" | "jogger" | "cargo" | "straight" | "wide" | "shorts" | "coach" | "bomber" | "puffer" | "beanie" | "cap" | "tote" | "socks"
 
 export interface Product {
   id: string
   sku: string
   name: string
-  category: Category
+  category: string
+  type: GarmentType
   price: number
   colors: { name: string; hex: string }[]
   sizes: string[]
   stock: number
   reorderLevel: number
+  description: string
+  fabric: string
+  fit: string
+  images: string[]
+  active: boolean
 }
 export interface OrderItem {
   productId: string
@@ -52,22 +59,32 @@ export interface Customer extends CustomerBase {
   lastOrder: string
   tier: "VIP" | "Loyal" | "Returning" | "New"
 }
+export interface Subscriber {
+  email: string
+  createdAt: string
+}
 
-/** The reference "today" of the demo dataset. */
-export const TODAY = Date.UTC(2026, 10, 5)
+export interface AdminData {
+  mode: "live" | "demo"
+  products: Product[]
+  orders: Order[]
+  customers: Customer[]
+  subscribers: Subscriber[]
+  /** Start of the most recent day that has orders, so the dashboard anchors to real activity. */
+  today: number
+  dataStart: number
+}
+
 export const DAY = 86_400_000
-export const DATA_START = Date.UTC(2026, 4, 1)
-export const STORE_NAME = "G4"
 export const ADMIN_NAME = "G4"
 
-export const products = store.products as Product[]
-export const orders = (store.orders as Order[]).slice().sort((a, b) => a.date.localeCompare(b.date))
-export const customerBase = store.customers as CustomerBase[]
-
 export const isBooked = (o: Pick<Order, "status">) => o.status !== "cancelled" && o.status !== "refunded"
+export const stockState = (p: Pick<Product, "stock" | "reorderLevel">) => (p.stock === 0 ? "out" : p.stock <= p.reorderLevel ? "low" : "ok")
 
-export const productById = new Map(products.map((p) => [p.id, p]))
-export const customerById = new Map(customerBase.map((c) => [c.id, c]))
+const dayStart = (iso: string) => {
+  const d = new Date(iso)
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+}
 
 function tierFor(spent: number, n: number): Customer["tier"] {
   if (spent >= 600) return "VIP"
@@ -76,7 +93,7 @@ function tierFor(spent: number, n: number): Customer["tier"] {
   return "New"
 }
 
-export const customers: Customer[] = (() => {
+export function buildCustomers(base: CustomerBase[], orders: Order[]): Customer[] {
   const agg = new Map<string, { n: number; spent: number; first: string; last: string }>()
   for (const o of orders) {
     const a = agg.get(o.customerId) ?? { n: 0, spent: 0, first: o.date, last: o.date }
@@ -88,15 +105,25 @@ export const customers: Customer[] = (() => {
     }
     agg.set(o.customerId, a)
   }
-  return customerBase
+  return base
     .filter((c) => agg.has(c.id))
     .map((c) => {
       const a = agg.get(c.id)!
       return { ...c, orders: a.n, spent: a.spent, firstOrder: a.first, lastOrder: a.last, tier: tierFor(a.spent, a.n) }
     })
-})()
+}
 
-export const TOTAL_REVENUE = orders.filter(isBooked).reduce((s, o) => s + o.total, 0)
-
-export const stockState = (p: Product) =>
-  p.stock === 0 ? "out" : p.stock <= p.reorderLevel ? "low" : "ok"
+export function buildAdminData(input: { mode: AdminData["mode"]; products: Product[]; orders: Order[]; customerBase: CustomerBase[]; subscribers: Subscriber[] }): AdminData {
+  const orders = [...input.orders].sort((a, b) => a.date.localeCompare(b.date))
+  const last = orders[orders.length - 1]
+  const first = orders[0]
+  return {
+    mode: input.mode,
+    products: input.products,
+    orders,
+    customers: buildCustomers(input.customerBase, orders),
+    subscribers: input.subscribers,
+    today: last ? dayStart(last.date) : dayStart(new Date().toISOString()),
+    dataStart: first ? dayStart(first.date) : dayStart(new Date().toISOString()),
+  }
+}

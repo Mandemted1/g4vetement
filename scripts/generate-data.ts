@@ -339,7 +339,7 @@ for (const o of orders) {
 
 const out = {
   generatedAt: "2026-11-05",
-  products: products.map(({ weight, ...p }) => p),
+  products,
   customers: customers.map((c, i) => ({ id: `C-${String(i + 1).padStart(4, "0")}`, ...c })),
   orders,
 }

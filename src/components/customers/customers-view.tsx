@@ -9,7 +9,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Pager } from "@/components/pager"
-import { customers, type Customer } from "@/lib/data"
+import { type Customer } from "@/lib/data"
+import { useAdmin } from "@/components/admin-data"
 import { dateLabel, initials, money } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -23,6 +24,7 @@ const tierStyle: Record<Customer["tier"], string> = {
 }
 
 export function CustomersView() {
+  const { customers } = useAdmin()
   const [q, setQ] = useState("")
   const [tier, setTier] = useState<(typeof TIERS)[number]>("All")
   const [page, setPage] = useState(0)
@@ -32,7 +34,7 @@ export function CustomersView() {
     return customers
       .filter((c) => (tier === "All" || c.tier === tier) && (c.name.toLowerCase().includes(s) || c.email.includes(s)))
       .sort((a, b) => b.spent - a.spent)
-  }, [q, tier])
+  }, [q, tier, customers])
   const view = rows.slice(page * PAGE, (page + 1) * PAGE)
   const total = customers.reduce((s, c) => s + c.spent, 0)
 

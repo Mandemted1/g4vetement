@@ -2,33 +2,41 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboardIcon, PackageIcon, ShirtIcon, UsersIcon } from "lucide-react"
+import { ExternalLinkIcon, LayoutDashboardIcon, LogOutIcon, MailIcon, MegaphoneIcon, MailOpenIcon, BarChart3Icon, PackageIcon, ShirtIcon, UsersIcon } from "lucide-react"
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail,
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { orders, products, ADMIN_NAME } from "@/lib/data"
-
-const openOrders = orders.filter((o) => o.status === "pending" || o.status === "processing").length
-const lowStock = products.filter((p) => p.stock <= p.reorderLevel).length
-
-const nav = [
-  { title: "Dashboard", href: "/", icon: LayoutDashboardIcon },
-  { title: "Orders", href: "/orders", icon: PackageIcon, badge: openOrders },
-  { title: "Products", href: "/products", icon: ShirtIcon, badge: lowStock, warn: true },
-  { title: "Customers", href: "/customers", icon: UsersIcon },
-]
+import { ADMIN_NAME } from "@/lib/data"
+import { useAdmin } from "@/components/admin-data"
+import { signOut } from "@/app/admin/actions"
 
 export function AppSidebar() {
   const pathname = usePathname()
-  const active = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href))
+  const { orders, products, subscribers, mode } = useAdmin()
+  const openOrders = orders.filter((o) => o.status === "pending" || o.status === "processing").length
+  const lowStock = products.filter((p) => p.stock <= p.reorderLevel).length
+  const nav = [
+    { title: "Dashboard", href: "/admin", icon: LayoutDashboardIcon },
+    { title: "Orders", href: "/admin/orders", icon: PackageIcon, badge: openOrders },
+    { title: "Products", href: "/admin/products", icon: ShirtIcon, badge: lowStock, warn: true },
+    { title: "Customers", href: "/admin/customers", icon: UsersIcon },
+    { title: "View store", href: "/", icon: ExternalLinkIcon, external: true },
+  ]
+  const insights = [{ title: "Analytics", href: "/admin/analytics", icon: BarChart3Icon }]
+  const marketing = [
+    { title: "Campaigns", href: "/admin/campaigns", icon: MegaphoneIcon },
+    { title: "Emails", href: "/admin/emails", icon: MailOpenIcon },
+    { title: "Subscribers", href: "/admin/subscribers", icon: MailIcon, badge: subscribers.length || undefined },
+  ]
+  const active = (href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href))
   return (
     <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link href="/" />}>
+            <SidebarMenuButton size="lg" render={<Link href="/admin" />}>
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sm font-bold tracking-tight text-sidebar-primary-foreground">
                 G4
               </div>
@@ -41,22 +49,28 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Store</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {nav.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton tooltip={item.title} isActive={active(item.href)} render={<Link href={item.href} />}>
-                    <item.icon />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                  {item.badge ? <SidebarMenuBadge className={item.warn ? "text-warning" : undefined}>{item.badge}</SidebarMenuBadge> : null}
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {[
+          { label: "Store", items: nav },
+          { label: "Marketing", items: marketing },
+          { label: "Insights", items: insights },
+        ].map((g) => (
+          <SidebarGroup key={g.label}>
+            <SidebarGroupLabel>{g.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {g.items.map((item) => (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton tooltip={item.title} isActive={!("external" in item) && active(item.href)} render={<Link href={item.href} />}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </SidebarMenuButton>
+                    {"badge" in item && typeof item.badge === "number" && item.badge > 0 ? <SidebarMenuBadge className={"warn" in item && item.warn ? "text-warning" : undefined}>{item.badge}</SidebarMenuBadge> : null}
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
@@ -71,6 +85,16 @@ export function AppSidebar() {
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          {mode === "live" && (
+            <SidebarMenuItem>
+              <form action={signOut}>
+                <SidebarMenuButton type="submit" tooltip="Sign out">
+                  <LogOutIcon />
+                  <span>Sign out</span>
+                </SidebarMenuButton>
+              </form>
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />

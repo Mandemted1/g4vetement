@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { SearchIcon, ArrowUpDownIcon } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,9 +10,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Separator } from "@/components/ui/separator"
+import { ProductThumb } from "@/components/product-thumb"
 import { StatusBadge, statusLabel } from "@/components/status-badge"
 import { Pager } from "@/components/pager"
-import { orders, customerById, type Order, type OrderStatus } from "@/lib/data"
+import { type Order, type OrderStatus } from "@/lib/data"
+import { useAdmin } from "@/components/admin-data"
+import { setOrderStatus } from "@/app/admin/actions"
+import { Button } from "@/components/ui/button"
 import { dateLabel, initials, money, timeLabel } from "@/lib/format"
 
 const PAGE = 12
@@ -19,18 +24,20 @@ const FILTERS: ("all" | OrderStatus)[] = ["all", "pending", "processing", "shipp
 type Sort = "date" | "total"
 
 export function OrdersView() {
+  const { orders, customerById } = useAdmin()
   const [q, setQ] = useState("")
   const [status, setStatus] = useState<"all" | OrderStatus>("all")
   const [sort, setSort] = useState<Sort>("date")
   const [desc, setDesc] = useState(true)
   const [page, setPage] = useState(0)
-  const [open, setOpen] = useState<Order | null>(null)
+  const [openId, setOpenId] = useState<string | null>(null)
+  const open = orders.find((o) => o.id === openId) ?? null
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: orders.length }
     orders.forEach((o) => (c[o.status] = (c[o.status] ?? 0) + 1))
     return c
-  }, [])
+  }, [orders])
 
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase()
@@ -42,7 +49,7 @@ export function OrdersView() {
     })
     list.sort((a, b) => (sort === "date" ? a.date.localeCompare(b.date) : a.total - b.total))
     return desc ? list.reverse() : list
-  }, [q, status, sort, desc])
+  }, [q, status, sort, desc, orders, customerById])
 
   const pages = Math.ceil(rows.length / PAGE)
   const view = rows.slice(page * PAGE, (page + 1) * PAGE)
@@ -84,9 +91,9 @@ export function OrdersView() {
             </TableHeader>
             <TableBody>
               {view.map((o) => {
-                const c = customerById.get(o.customerId)!
+                const c = customerById.get(o.customerId) ?? { name: "Guest", email: "", id: "" }
                 return (
-                  <TableRow key={o.id} className="cursor-pointer" onClick={() => setOpen(o)}>
+                  <TableRow key={o.id} className="cursor-pointer" onClick={() => setOpenId(o.id)}>
                     <TableCell className="font-medium">#{o.id}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2.5">
@@ -108,7 +115,7 @@ export function OrdersView() {
         </CardContent>
       </Card>
 
-      <Sheet open={!!open} onOpenChange={(v) => !v && setOpen(null)}>
+      <Sheet open={!!open} onOpenChange={(v) => !v && setOpenId(null)}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-md">
           {open && <OrderDetail o={open} />}
         </SheetContent>
@@ -117,8 +124,25 @@ export function OrdersView() {
   )
 }
 
+const NEXT: Partial<Record<OrderStatus, OrderStatus>> = { pending: "processing", processing: "shipped", shipped: "delivered" }
+
 function OrderDetail({ o }: { o: Order }) {
-  const c = customerById.get(o.customerId)!
+  const { customerById, productById } = useAdmin()
+  const router = useRouter()
+  const [busy, start] = useTransition()
+  const [err, setErr] = useState("")
+  const c = customerById.get(o.customerId) ?? { name: "Guest", email: "", city: "", state: "", id: "" }
+  const next = NEXT[o.status]
+  const terminal = o.status === "cancelled" || o.status === "refunded"
+  const change = (to: OrderStatus, confirmMsg?: string) => {
+    if (confirmMsg && !window.confirm(confirmMsg)) return
+    setErr("")
+    start(async () => {
+      const r = await setOrderStatus(o.id, to)
+      if (!r.ok) setErr(r.error)
+      else router.refresh()
+    })
+  }
   const steps: OrderStatus[] = ["pending", "processing", "shipped", "delivered"]
   const idx = steps.indexOf(o.status)
   return (
@@ -128,6 +152,17 @@ function OrderDetail({ o }: { o: Order }) {
         <SheetDescription>{dateLabel(o.date)} at {timeLabel(o.date)} · {o.channel}</SheetDescription>
       </SheetHeader>
       <div className="flex items-center justify-between"><StatusBadge status={o.status} /><span className="text-xl font-semibold tabular">{money(o.total)}</span></div>
+      {!terminal && (
+        <div className="flex flex-col gap-2">
+          {next && <Button disabled={busy} onClick={() => change(next)}>{busy ? "Saving…" : `Mark as ${statusLabel[next].toLowerCase()}`}</Button>}
+          {o.status === "delivered" ? (
+            <Button variant="outline" disabled={busy} onClick={() => change("refunded", `Refund order #${o.id}?`)}>Refund</Button>
+          ) : (
+            <Button variant="outline" disabled={busy} onClick={() => change("cancelled", `Cancel order #${o.id}? Items go back into stock.`)}>Cancel order</Button>
+          )}
+        </div>
+      )}
+      {err && <p className="text-xs text-negative">{err}</p>}
       {idx >= 0 && (
         <div className="flex items-center gap-1">
           {steps.map((s, i) => (
@@ -144,7 +179,7 @@ function OrderDetail({ o }: { o: Order }) {
         <ul className="flex flex-col gap-3">
           {o.items.map((i) => (
             <li key={i.productId} className="flex items-center gap-3 text-sm">
-              <span className="size-10 shrink-0 rounded-lg border" style={{ background: i.colorHex }} />
+              <ProductThumb image={productById.get(i.productId)?.images[0]} color={i.colorHex} className="size-10 rounded-lg" />
               <div className="min-w-0 flex-1"><div className="truncate font-medium">{i.name}</div><div className="text-xs text-muted-foreground">{i.color} · {i.size} · Qty {i.qty}</div></div>
               <span className="tabular">{money(i.price * i.qty)}</span>
             </li>

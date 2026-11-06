@@ -4,10 +4,11 @@ import Link from "next/link"
 import { BellIcon, AlertTriangleIcon, PackageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { orders, products, customerById, TODAY } from "@/lib/data"
+import { useAdmin } from "@/components/admin-data"
 import { money, relativeTime } from "@/lib/format"
 
 export function Notifications() {
+  const { orders, products, customerById, today } = useAdmin()
   const open = orders.filter((o) => o.status === "pending" || o.status === "processing").slice(-3).reverse()
   const stock = products.filter((p) => p.stock <= p.reorderLevel).sort((a, b) => a.stock - b.stock).slice(0, 3)
   const count = open.length + stock.length
@@ -23,16 +24,16 @@ export function Notifications() {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         {open.map((o) => (
-          <DropdownMenuItem key={o.id} render={<Link href="/orders" />} className="items-start gap-3 py-2">
+          <DropdownMenuItem key={o.id} render={<Link href="/admin/orders" />} className="items-start gap-3 py-2">
             <PackageIcon className="mt-0.5 size-4 text-muted-foreground" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">New order #{o.id} · {money(o.total)}</p>
-              <p className="text-xs text-muted-foreground">{customerById.get(o.customerId)?.name} · {relativeTime(o.date, TODAY + 86_400_000 - 1)}</p>
+              <p className="text-xs text-muted-foreground">{customerById.get(o.customerId)?.name} · {relativeTime(o.date, today + 86_400_000 - 1)}</p>
             </div>
           </DropdownMenuItem>
         ))}
         {stock.map((p) => (
-          <DropdownMenuItem key={p.id} render={<Link href="/products" />} className="items-start gap-3 py-2">
+          <DropdownMenuItem key={p.id} render={<Link href="/admin/products" />} className="items-start gap-3 py-2">
             <AlertTriangleIcon className="mt-0.5 size-4 text-warning" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{p.name}</p>

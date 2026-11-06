@@ -10,10 +10,12 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { ProductThumb } from "@/components/product-thumb"
 import { CountUp } from "@/components/count-up"
 import { StatusBadge } from "@/components/status-badge"
 import { getBriefing, getDashboard, RANGES, type Range, type Kpi } from "@/lib/analytics"
-import { orders, products, customerById, stockState, ADMIN_NAME, TODAY } from "@/lib/data"
+import { stockState, ADMIN_NAME } from "@/lib/data"
+import { useAdmin } from "@/components/admin-data"
 import { compact, dateLabel, dayLabel, initials, int, longDate, money, moneyShort, pct, relativeTime } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -65,12 +67,14 @@ const CAT_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(-
 
 export function Dashboard() {
   const [range, setRange] = useState<Range>("all")
-  const d = useMemo(() => getDashboard(range), [range])
-  const b = useMemo(() => getBriefing(), [])
+  const admin = useAdmin()
+  const { orders, products, customerById, today: TODAY } = admin
+  const d = useMemo(() => getDashboard(range, admin), [range, admin])
+  const b = useMemo(() => getBriefing(admin), [admin])
   const k = d.kpis
 
-  const recent = useMemo(() => orders.slice(-8).reverse(), [])
-  const lowStock = useMemo(() => products.filter((p) => stockState(p) !== "ok").sort((a, b) => a.stock - b.stock), [])
+  const recent = useMemo(() => orders.slice(-8).reverse(), [orders])
+  const lowStock = useMemo(() => products.filter((p) => stockState(p) !== "ok").sort((a, b) => a.stock - b.stock), [products])
   const catTotal = d.categories.reduce((s, c) => s + c.revenue, 0)
   const statusTotal = d.statusCounts.pending + d.statusCounts.processing + d.statusCounts.shipped + d.statusCounts.delivered
   const statusBars = [
@@ -245,13 +249,13 @@ export function Dashboard() {
           <CardHeader>
             <CardTitle>Top products</CardTitle>
             <CardDescription>Best sellers by revenue</CardDescription>
-            <CardAction><Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/products" />}>View all <ArrowRightIcon /></Button></CardAction>
+            <CardAction><Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/admin/products" />}>View all <ArrowRightIcon /></Button></CardAction>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {d.topProducts.slice(0, 6).map((t, i) => (
               <div key={t.product.id} className="flex items-center gap-3">
                 <span className="w-4 text-xs text-muted-foreground tabular">{i + 1}</span>
-                <span className="size-9 shrink-0 rounded-lg border" style={{ background: t.product.colors[0].hex }} />
+                <ProductThumb image={t.product.images[0]} color={t.product.colors[0]?.hex ?? "#999"} className="size-9 rounded-lg" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span className="truncate font-medium">{t.product.name}</span>
@@ -275,7 +279,7 @@ export function Dashboard() {
           <CardContent className="flex flex-col gap-4">
             {lowStock.map((p) => (
               <div key={p.id} className="flex items-center gap-3">
-                <span className="size-8 shrink-0 rounded-md border" style={{ background: p.colors[0].hex }} />
+                <ProductThumb image={p.images[0]} color={p.colors[0]?.hex ?? "#999"} className="size-8 rounded-md" />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{p.name}</div>
                   <div className="text-xs text-muted-foreground">Reorder at {p.reorderLevel}</div>
@@ -294,7 +298,7 @@ export function Dashboard() {
         <CardHeader>
           <CardTitle>Recent orders</CardTitle>
           <CardDescription>The latest 8 orders across the store</CardDescription>
-          <CardAction><Button variant="outline" size="sm" nativeButton={false} render={<Link href="/orders" />}>All orders <ArrowRightIcon /></Button></CardAction>
+          <CardAction><Button variant="outline" size="sm" nativeButton={false} render={<Link href="/admin/orders" />}>All orders <ArrowRightIcon /></Button></CardAction>
         </CardHeader>
         <CardContent>
           <Table>
@@ -310,7 +314,7 @@ export function Dashboard() {
             </TableHeader>
             <TableBody>
               {recent.map((o) => {
-                const c = customerById.get(o.customerId)!
+                const c = customerById.get(o.customerId) ?? { name: "Guest", email: "" }
                 return (
                   <TableRow key={o.id} className="transition-colors">
                     <TableCell className="font-medium">#{o.id}</TableCell>

@@ -1,4 +1,4 @@
-import { orders, products, productById, customers, isBooked, TODAY, DAY, DATA_START, type Order, type Category } from "./data"
+import { isBooked, DAY, type AdminData, type Order } from "./data"
 import { dayLabel, monthLabel } from "./format"
 
 export type Range = "7d" | "30d" | "90d" | "all"
@@ -9,8 +9,8 @@ export const RANGES: { value: Range; label: string }[] = [
   { value: "all", label: "All" },
 ]
 
-const startOf = (r: Range) => (r === "all" ? DATA_START : TODAY - ({ "7d": 6, "30d": 29, "90d": 89 }[r]) * DAY)
-const spanDays = (r: Range) => Math.round((TODAY - startOf(r)) / DAY) + 1
+const startOf = (r: Range, d: AdminData) => (r === "all" ? d.dataStart : d.today - ({ "7d": 6, "30d": 29, "90d": 89 }[r]) * DAY)
+const spanDays = (r: Range, d: AdminData) => Math.round((d.today - startOf(r, d)) / DAY) + 1
 const ts = (o: Order) => new Date(o.date).getTime()
 const inWindow = (o: Order, from: number, to: number) => ts(o) >= from && ts(o) < to + DAY
 
@@ -23,12 +23,13 @@ export interface Kpi {
 }
 const delta = (cur: number, prev: number | null) => (prev === null ? null : prev === 0 ? null : ((cur - prev) / prev) * 100)
 
-// first order date per customer (any status) – used for "new customers"
-const firstOrder = new Map(customers.map((c) => [c.id, new Date(c.firstOrder).getTime()]))
-
-export function getDashboard(range: Range) {
-  const from = startOf(range)
-  const days = spanDays(range)
+export function getDashboard(range: Range, data: AdminData) {
+  const { orders, customers, products, today: TODAY, dataStart: DATA_START } = data
+  // first order date per customer (any status) – used for "new customers"
+  const firstOrder = new Map(customers.map((c) => [c.id, new Date(c.firstOrder).getTime()]))
+  const productById = new Map(products.map((p) => [p.id, p]))
+  const from = startOf(range, data)
+  const days = spanDays(range, data)
   const prevFrom = from - days * DAY
   const hasPrev = range !== "all" && prevFrom >= DATA_START
   const cur = orders.filter((o) => inWindow(o, from, TODAY))
@@ -83,12 +84,13 @@ export function getDashboard(range: Range) {
   cur.forEach((o) => statusCounts[o.status]++)
 
   // ---- categories ----
-  const catMap = new Map<Category, { revenue: number; units: number }>()
+  const catMap = new Map<string, { revenue: number; units: number }>()
   const prodMap = new Map<string, { revenue: number; units: number }>()
   curB.forEach((o) => {
     // allocate order discounts proportionally so category totals tie out to revenue minus shipping
     o.items.forEach((i) => {
-      const p = productById.get(i.productId)!
+      const p = productById.get(i.productId)
+      if (!p) return
       const gross = i.price * i.qty
       const net = gross - (o.discount * gross) / o.subtotal
       const c = catMap.get(p.category) ?? { revenue: 0, units: 0 }
@@ -144,7 +146,8 @@ export function getDashboard(range: Range) {
   }
 }
 
-export function getBriefing() {
+export function getBriefing(data: AdminData) {
+  const { orders, products, today: TODAY } = data
   const toFulfill = orders.filter((o) => o.status === "pending" || o.status === "processing")
   const lowStock = products.filter((p) => p.stock <= p.reorderLevel)
   const today = orders.filter((o) => ts(o) >= TODAY && isBooked(o))

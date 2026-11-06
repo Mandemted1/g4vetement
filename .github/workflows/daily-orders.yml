@@ -1,0 +1,37 @@
+name: Daily demo orders
+
+on:
+  schedule:
+    - cron: "15 0 * * *" # 00:15 UTC: adds 3–10 demo orders (and matching demo visits) for each day since the last one
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  add-orders:
+    runs-on: ubuntu-latest
+    env:
+      # Add these two in GitHub: Settings > Secrets and variables > Actions.
+      # With them the job writes to Supabase. Without them it falls back to editing src/data/store.json.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run daily
+      - name: Commit changes (demo-data mode only)
+        run: |
+          if git diff --quiet -- src/data/store.json; then
+            echo "Nothing to commit."
+          else
+            git config user.name "g4-bot"
+            git config user.email "g4-bot@users.noreply.github.com"
+            git add src/data/store.json
+            git commit -m "Add daily demo orders"
+            git push
+          fi
