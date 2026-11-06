@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
+import Link from "next/link"
+import { searchProducts } from "@/lib/search"
 import { pad, sortedForGrid } from "@/lib/store"
 import { useCatalog } from "./catalog"
 import { IndexList } from "./index-list"
@@ -10,28 +12,39 @@ import { Rise } from "./fx"
 
 type View = "grid" | "index"
 
-export function ShopView({ initial }: { initial: string }) {
+export function ShopView({ initial, query = "" }: { initial: string; query?: string }) {
   const { shop, categories } = useCatalog()
   const [cat, setCat] = useState(categories.includes(initial as never) ? initial : "All")
   const [view, setView] = useState<View>("grid")
 
-  const list = useMemo(() => sortedForGrid(cat === "All" ? shop : shop.filter((p) => p.category === cat)), [cat, shop])
+  // a search narrows the shop first (best match first); the category tabs then narrow it further
+  const base = useMemo(() => (query ? searchProducts(shop, query) : shop), [shop, query])
+  const list = useMemo(() => sortedForGrid(cat === "All" ? base : base.filter((p) => p.category === cat)), [cat, base])
   const tabs = ["All", ...categories]
-  const count = (c: string) => (c === "All" ? shop.length : shop.filter((p) => p.category === c).length)
+  const count = (c: string) => (c === "All" ? base.length : base.filter((p) => p.category === c).length)
 
   const pick = (c: string) => {
     setCat(c)
     try {
-      window.history.replaceState(null, "", c === "All" ? "/shop" : `/shop?c=${encodeURIComponent(c)}`)
+      const params = new URLSearchParams()
+      if (c !== "All") params.set("c", c)
+      if (query) params.set("q", query)
+      window.history.replaceState(null, "", params.size ? `/shop?${params}` : "/shop")
     } catch {}
   }
 
   return (
     <div className="px-5 pb-10 pt-28 md:px-8 md:pt-36">
       <div className="flex items-end justify-between">
-        <Rise as="h1" text={cat === "All" ? "Shop" : cat} className="text-[clamp(3rem,10vw,9rem)] font-medium leading-[0.85] tracking-[-0.06em]" />
+        <Rise as="h1" text={query ? "Search" : cat === "All" ? "Shop" : cat} className="text-[clamp(3rem,10vw,9rem)] font-medium leading-[0.85] tracking-[-0.06em]" />
         <span className="label pb-2">{pad(list.length)} items</span>
       </div>
+      {query && (
+        <p className="label mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-[var(--mute)]">
+          <span>Results for “{query}”</span>
+          <Link href={cat === "All" ? "/shop" : `/shop?c=${encodeURIComponent(cat)}`} className="u text-[var(--ink)]" data-cursor="CLEAR">Clear search</Link>
+        </p>
+      )}
 
       <div className="sticky top-[52px] z-30 -mx-5 mt-10 flex items-center justify-between gap-6 border-y bg-[var(--paper)]/90 px-5 backdrop-blur-md md:-mx-8 md:px-8">
         <div className="no-scrollbar flex gap-6 overflow-x-auto">
@@ -54,6 +67,9 @@ export function ShopView({ initial }: { initial: string }) {
       </div>
 
       <div className="mt-10 md:mt-14">
+        {query && list.length === 0 && (
+          <p className="max-w-md text-[15px] leading-relaxed">Nothing matches “{query}”{cat !== "All" ? ` in ${cat}` : ""}. Check the spelling, or <Link href="/shop" className="u">browse everything</Link>.</p>
+        )}
         {view === "grid" ? (
           <motion.div layout className="grid grid-cols-2 gap-x-3 gap-y-12 md:grid-cols-3 md:gap-x-6 md:gap-y-20 lg:grid-cols-4 lg:[&>div:nth-child(4n+2)]:mt-14 lg:[&>div:nth-child(4n+4)]:mt-28">
             <AnimatePresence mode="popLayout" initial={false}>

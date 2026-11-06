@@ -12,6 +12,7 @@ import { ProductThumb } from "@/components/product-thumb"
 import { ProductEditor } from "@/components/products/product-editor"
 import { useAdmin } from "@/components/admin-data"
 import { isBooked, stockState, type Product } from "@/lib/data"
+import { searchProducts } from "@/lib/search"
 import { soldOutSizes } from "@/lib/stock"
 import { int, money } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -40,8 +41,10 @@ export function ProductsView() {
     return m
   }, [orders])
 
+  // same matching as the storefront: name, colour, category, product code, description (typos and plurals are fine)
+  const matched = q.trim() ? new Set(searchProducts(products, q, { codes: true }).map((p) => p.id)) : null
   const rows = products
-    .filter((p) => (cat === "All" || p.category === cat) && p.name.toLowerCase().includes(q.toLowerCase()))
+    .filter((p) => (cat === "All" || p.category === cat) && (matched?.has(p.id) ?? true))
     .sort((a, b) => (sales.get(b.id)?.revenue ?? 0) - (sales.get(a.id)?.revenue ?? 0))
 
   return (
@@ -63,7 +66,7 @@ export function ProductsView() {
             </div>
             <div className="relative w-full lg:w-64">
               <SearchIcon className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products" className="pl-8" />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, colour, code…" className="pl-8" />
             </div>
           </div>
           <Table>

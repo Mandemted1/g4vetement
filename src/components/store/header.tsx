@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { pad } from "@/lib/store"
 import { useCatalog } from "./catalog"
 import { useCart } from "./cart"
+import { SearchOverlay } from "./search-overlay"
 
 const EASE = [0.76, 0, 0.24, 1] as const
 
@@ -13,6 +14,7 @@ export function StoreHeader() {
   const { count, setOpen, bumped } = useCart()
   const { shop, categories, policyLinks } = useCatalog()
   const [menu, setMenu] = useState(false)
+  const [search, setSearch] = useState(false)
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
@@ -29,6 +31,21 @@ export function StoreHeader() {
     return () => window.removeEventListener("keydown", onKey)
   }, [menu])
 
+  // "/" or Ctrl/⌘+K opens search from anywhere (unless you're typing in a field)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      const typing = !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)
+      if ((e.key === "/" && !typing && !e.metaKey && !e.ctrlKey) || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k")) {
+        e.preventDefault()
+        setMenu(false)
+        setSearch(true)
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
+
   const links = [
     { label: "All products", href: "/shop", n: shop.length },
     ...categories.map((c) => ({ label: c, href: `/shop?c=${encodeURIComponent(c)}`, n: shop.filter((p) => p.category === c).length })),
@@ -44,13 +61,21 @@ export function StoreHeader() {
           <Link href="/" onClick={() => setMenu(false)} className="-m-3 justify-self-center p-3 text-[19px] font-semibold leading-none tracking-[-0.06em]" aria-label="G4 home">
             G4
           </Link>
-          <button id="bag-link" onClick={() => setOpen(true)} className="label -m-3 justify-self-end p-3" data-cursor="BAG">
-            <span className="u">
-              Bag (<span key={bumped} className={bumped ? "bump inline-block" : "inline-block"}>{count}</span>)
-            </span>
-          </button>
+          <div className="label flex items-center gap-1 justify-self-end">
+            <button onClick={() => { setMenu(false); setSearch(true) }} className="-m-3 p-3" data-cursor="SEARCH" aria-label="Search">
+              <span className="u">Search</span>
+            </button>
+            <span aria-hidden className="mx-2 hidden h-3 w-px bg-[var(--ink)]/25 sm:block" />
+            <button id="bag-link" onClick={() => setOpen(true)} className="-m-3 ml-3 p-3 sm:ml-1" data-cursor="BAG">
+              <span className="u">
+                Bag (<span key={bumped} className={bumped ? "bump inline-block" : "inline-block"}>{count}</span>)
+              </span>
+            </button>
+          </div>
         </div>
       </header>
+
+      <SearchOverlay open={search} onClose={() => setSearch(false)} />
 
       <AnimatePresence>
         {menu && (

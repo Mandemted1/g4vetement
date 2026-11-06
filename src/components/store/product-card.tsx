@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { isSoldOut, onSale, pad, type ShopProduct } from "@/lib/store"
+import { isSoldOut, onSale, pad, sizeLeft, type ShopProduct } from "@/lib/store"
 import { PriceTag } from "./price-tag"
 import { useCart } from "./cart"
 import { ProductMedia } from "./product-media"
@@ -41,12 +41,14 @@ export function ProductCard({ product: p, className, ratio = "aspect-[4/5]", pri
             {p.sizes.map((s) => (
               <button
                 key={s}
-                data-cursor="ADD"
+                disabled={sizeLeft(p, s) <= 0}
+                aria-label={sizeLeft(p, s) <= 0 ? `${s}, sold out` : `Add size ${s}`}
+                data-cursor={sizeLeft(p, s) <= 0 ? "" : "ADD"}
                 onClick={(e) => {
                   add({ productId: p.id, size: s, color: p.colors[0].name, colorHex: p.colors[0].hex }, e.currentTarget.getBoundingClientRect())
                   window.setTimeout(() => setOpen(true), 700)
                 }}
-                className="label flex-1 bg-[var(--paper)] py-3 transition-colors hover:bg-[var(--ink)] hover:text-[var(--paper)]"
+                className="label flex-1 bg-[var(--paper)] py-3 transition-colors enabled:hover:bg-[var(--ink)] enabled:hover:text-[var(--paper)] disabled:cursor-not-allowed disabled:line-through disabled:opacity-40"
               >
                 {s === "One Size" ? "Add" : s}
               </button>
