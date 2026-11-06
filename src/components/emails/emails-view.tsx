@@ -14,12 +14,10 @@ const KIND: Record<string, string> = { campaign: "Campaign", order_confirmation:
 
 export function EmailsView({ templates, messages, config, tablesMissing }: { templates: TemplateItem[]; messages: MessageItem[]; config: ReturnType<typeof emailConfig>; tablesMissing: boolean }) {
   const issues: string[] = []
-  const gmail = config.provider === "smtp"
-  if (!config.configured) issues.push(gmail ? "GMAIL_USER and GMAIL_APP_PASSWORD aren't set, so no emails can be sent." : "RESEND_API_KEY isn't set, so no emails can be sent.")
+  if (!config.configured) issues.push("RESEND_API_KEY isn't set, so no emails can be sent.")
   if (config.testMode) issues.push("You're using Resend's test sender, which only delivers to your own email. Verify a domain at resend.com/domains and set EMAIL_FROM to send to customers.")
-  if (gmail) issues.push("Sending through Gmail: fine for order emails, but limited to about 500 recipients a day and 300 per campaign, with no open or click tracking. For newsletters, switch to Resend with a verified domain.")
   if (!config.hasAddress) issues.push("Add STORE_ADDRESS so marketing emails include your mailing address (required by anti-spam law in most countries).")
-  if (!gmail && !config.hasWebhook) issues.push("Add RESEND_WEBHOOK_SECRET and the webhook (see below) to track delivered, opened and clicked.")
+  if (!config.hasWebhook) issues.push("Add RESEND_WEBHOOK_SECRET and the webhook (see below) to track delivered, opened and clicked.")
   if (tablesMissing) issues.push("The email tables aren't installed yet. Run `npm run migrate`, or paste supabase/003_email_analytics.sql into the Supabase SQL editor.")
 
   return (
@@ -33,16 +31,16 @@ export function EmailsView({ templates, messages, config, tablesMissing }: { tem
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             {issues.length ? <AlertTriangleIcon className="size-4 text-warning" /> : <CheckCircle2Icon className="size-4 text-positive" />}
-            {issues.length ? "Setup notes" : "Email is ready"}
+            {issues.length ? "Setup needed" : "Email is ready"}
           </CardTitle>
-          {issues.length === 0 && <CardDescription>{gmail ? "Gmail is connected." : "Resend is connected and your sending domain is set up."}</CardDescription>}
+          {issues.length === 0 && <CardDescription>Resend is connected and your sending domain is set up.</CardDescription>}
         </CardHeader>
         {issues.length > 0 && (
           <CardContent>
             <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">{issues.map((i) => <li key={i}>{i}</li>)}</ul>
-            {!gmail && <p className="mt-4 text-xs text-muted-foreground">
+            <p className="mt-4 text-xs text-muted-foreground">
               Webhook URL to add in Resend: <code className="rounded bg-muted px-1.5 py-0.5">{config.siteUrl}/api/webhooks/resend</code> (events: delivered, opened, clicked, bounced, complained).
-            </p>}
+            </p>
           </CardContent>
         )}
       </Card>
