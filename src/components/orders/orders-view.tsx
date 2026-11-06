@@ -251,6 +251,12 @@ function OrderDetail({ o }: { o: Order }) {
         {o.discount > 0 && <div className="flex justify-between"><dt className="text-muted-foreground">Discount ({o.discountCode})</dt><dd className="tabular">−{money(o.discount)}</dd></div>}
         <div className="flex justify-between"><dt className="text-muted-foreground">Shipping{o.ship?.method ? ` (${o.ship.method})` : ""}</dt><dd className="tabular">{o.shipping ? money(o.shipping) : "Free"}</dd></div>
         <div className="flex justify-between border-t pt-2 font-semibold"><dt>Total</dt><dd className="tabular">{money(o.total)}</dd></div>
+        {(o.giftAmount ?? 0) > 0 && (
+          <>
+            <div className="flex justify-between"><dt className="text-muted-foreground">Gift card{o.giftCode ? ` (…${o.giftCode.slice(-4)})` : ""}</dt><dd className="tabular">−{money(o.giftAmount ?? 0)}</dd></div>
+            <div className="flex justify-between font-medium"><dt>To collect</dt><dd className="tabular">{money(o.total - (o.giftAmount ?? 0))}</dd></div>
+          </>
+        )}
       </dl>
       <Separator />
       <div className="text-sm">

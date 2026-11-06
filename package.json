@@ -30,7 +30,9 @@
     "test-shipping-email": "tsx scripts/test-shipping-email.mts",
     "make-admin": "tsx --env-file=.env.local scripts/make-admin.mts",
     "test-security-db": "tsx --env-file=.env.local scripts/test-security-db.mts",
-    "test-reviews-db": "tsx --env-file=.env.local scripts/test-reviews-db.mts"
+    "test-reviews-db": "tsx --env-file=.env.local scripts/test-reviews-db.mts",
+    "test-gift-db": "tsx --env-file=.env.local scripts/test-gift-db.mts",
+    "test-gift-cards": "tsx scripts/test-gift-cards.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

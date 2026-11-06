@@ -60,7 +60,7 @@ try {
   ok("the admin list can't be read or changed by a customer", (await rows(cust.db.from("admins").select("*"))) === 0 && !!(await cust.db.from("admins").insert({ user_id: cust.id })).error)
 
   // ---------- a customer can't see or change admin data ----------
-  for (const t of ["orders", "order_items", "customers", "discount_codes", "sales", "shipping_zones", "site_settings", "subscribers", "email_templates", "campaigns", "email_messages", "visits"]) {
+  for (const t of ["orders", "order_items", "customers", "discount_codes", "sales", "shipping_zones", "site_settings", "subscribers", "email_templates", "campaigns", "email_messages", "visits", "gift_cards", "gift_card_ledger"]) {
     const n = await rows(cust.db.from(t).select("*"))
     ok(`customer can't read ${t}`, n === 0, `${n} rows`)
   }
@@ -82,6 +82,9 @@ try {
   ok("a visitor can't adjust stock either", !!(await fresh().rpc("adjust_stock", { p_product: PID, p_size: "M", p_delta: 100 })).error)
   const up = await cust.db.storage.from("products").upload(`zzt-sec/${Date.now()}.txt`, new Blob(["x"], { type: "text/plain" }))
   ok("customer can't upload to the product photo bucket", !!up.error, up.error?.message)
+
+  ok("customer can't issue, adjust or restore gift cards", !!(await cust.db.rpc("issue_gift_card", { p_code: "ZZTSECGIFT0001", p_amount: 500 })).error && !!(await cust.db.rpc("adjust_gift_card", { p_card: "00000000-0000-0000-0000-000000000000", p_delta: 5 })).error && !!(await cust.db.rpc("restore_gift_card", { p_order: "G4-1" })).error)
+  ok("…and nothing was created", ((await svc.from("gift_cards").select("id").like("code", "ZZTSEC%")).data ?? []).length === 0)
 
   // ---------- an admin still can ----------
   ok("admin sees hidden products", (await rows(adm.db.from("products").select("id"))) >= (await rows(cust.db.from("products").select("id"))))

@@ -187,6 +187,9 @@ function CartDrawer() {
   const [typed, setTyped] = useState("")
   const [applied, setApplied] = useState("")
   const [showCode, setShowCode] = useState(false)
+  const [giftTyped, setGiftTyped] = useState("")
+  const [giftApplied, setGiftApplied] = useState("")
+  const [showGift, setShowGift] = useState(false)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ key: string; r: QuoteResult } | null>(null)
@@ -203,12 +206,12 @@ function CartDrawer() {
 
   // The database prices the bag: sales, code, shipping and total. Re-asked whenever the bag, code or email changes.
   const email = step === "details" ? form.email.trim() : ""
-  const key = JSON.stringify({ l: lines.map((l) => [l.productId, l.size, l.color, l.qty]), c: applied, e: email, k: country })
+  const key = JSON.stringify({ l: lines.map((l) => [l.productId, l.size, l.color, l.qty]), c: applied, g: giftApplied, e: email, k: country })
   useEffect(() => {
     if (!open || lines.length === 0) return
     let alive = true
     const t = window.setTimeout(async () => {
-      const r = await quoteOrder({ email, code: applied || undefined, country: country || undefined, items: lines.map((l) => ({ productId: l.productId, size: l.size, color: l.color, qty: l.qty })) })
+      const r = await quoteOrder({ email, code: applied || undefined, gift: giftApplied || undefined, country: country || undefined, items: lines.map((l) => ({ productId: l.productId, size: l.size, color: l.color, qty: l.qty })) })
       if (alive) setResult({ key, r })
     }, 250)
     return () => {
@@ -269,6 +272,7 @@ function CartDrawer() {
       ...form,
       country,
       code: applied || undefined,
+      gift: giftApplied || undefined,
       items: lines.map((l) => ({ productId: l.productId, size: l.size, color: l.color, qty: l.qty })),
     })
     setBusy(false)
@@ -287,6 +291,8 @@ function CartDrawer() {
       shipping: r.shipping,
       subtotal: r.subtotal,
       email: form.email,
+      giftAmount: r.giftAmount,
+      amountDue: r.amountDue,
       estimate: r.estimate,
       shipTo: [form.name.trim(), form.address.trim(), [form.city.trim(), form.state.trim(), form.postcode.trim()].filter(Boolean).join(", "), countries.find((c) => c.code === country)?.name ?? country].filter(Boolean).join("\n"),
       items: lines.map((l) => {
@@ -301,11 +307,19 @@ function CartDrawer() {
       setForm(blankForm())
       setApplied("")
       setTyped("")
+      setGiftApplied("")
+      setGiftTyped("")
+      setShowGift(false)
     }, 600)
   }
 
   const input = "w-full border-b bg-transparent py-3 text-[15px] outline-none transition-colors placeholder:text-[var(--mute)] focus:border-[var(--ink)]"
-  const canCheckout = !loading && !bagError && !ship.error && lines.length > 0
+  // a gift card that can't be used blocks checkout until it's removed (a discount code just doesn't apply)
+  const canCheckout = !loading && !bagError && !ship.error && !q?.giftError && lines.length > 0
+  // what the shopper still pays after any gift card
+  const due = q ? q.amountDue : total
+  const dueLabel = due === 0 && q && q.giftAmount > 0 ? "paid with gift card" : price(due)
+  const maskGift = (c: string) => (c.length > 4 ? `••••${c.slice(-4)}` : c)
 
   return (
     <AnimatePresence>
@@ -387,6 +401,27 @@ function CartDrawer() {
                       </AnimatePresence>
                     </ul>
 
+                    {/* gift card */}
+                    <div className="border-t px-5 py-5">
+                      {giftApplied ? (
+                        <div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="label border border-dashed border-[var(--ink)] px-2.5 py-1.5">Gift card {maskGift(giftApplied)}{q && q.giftAmount > 0 ? ` · −${price(q.giftAmount)}` : ""}</span>
+                            <button onClick={() => setGiftApplied("")} className="label text-[var(--mute)]"><span className="u">Remove</span></button>
+                          </div>
+                          {q?.giftError && <p role="alert" className="label mt-2.5 leading-relaxed text-[#b3261e]">{q.giftError}</p>}
+                          {q && q.giftAmount > 0 && q.giftBalanceAfter !== null && <p className="label mt-2.5 text-[var(--mute)]">{q.giftBalanceAfter > 0 ? `${price(q.giftBalanceAfter)} will be left on the card` : "This uses the rest of the card"}</p>}
+                        </div>
+                      ) : showGift ? (
+                        <form onSubmit={(e) => { e.preventDefault(); const g = giftTyped.trim().toUpperCase().replace(/\s+/g, ""); if (g) { setGiftApplied(g); setGiftTyped(""); setShowGift(false) } }} className="flex items-end gap-3 border-b border-[var(--ink)]">
+                          <input autoFocus value={giftTyped} onChange={(e) => setGiftTyped(e.target.value)} placeholder="Gift card code" aria-label="Gift card code" autoComplete="off" spellCheck={false} className="w-full bg-transparent py-2.5 text-[15px] uppercase outline-none placeholder:normal-case placeholder:text-[var(--mute)]" />
+                          <button type="submit" disabled={!giftTyped.trim()} className="label shrink-0 pb-2.5 disabled:opacity-40"><span className="u">Apply</span></button>
+                        </form>
+                      ) : (
+                        <button onClick={() => setShowGift(true)} className="label text-[var(--mute)]"><span className="u">+ Add a gift card</span></button>
+                      )}
+                    </div>
+
                     {/* discount code */}
                     <div className="px-5 py-5">
                       {applied ? (
@@ -458,16 +493,18 @@ function CartDrawer() {
                     <div className="flex justify-between"><dt>Shipping</dt><dd>{ship.error ? "–" : q ? (q.shipping ? price(q.shipping) : "Free") : "–"}</dd></div>
                     {q && !ship.error && q.shipEstimate && <div className="flex justify-between"><dt>Delivery</dt><dd>{q.shipEstimate}</dd></div>}
                     <div className="flex justify-between pt-1 text-[12px]"><dt>Total</dt><dd>{price(total)}</dd></div>
+                    {q && q.giftAmount > 0 && <div className="flex justify-between"><dt>Gift card</dt><dd>−{price(q.giftAmount)}</dd></div>}
+                    {q && q.giftAmount > 0 && <div className="flex justify-between text-[12px]"><dt>To pay</dt><dd>{price(q.amountDue)}</dd></div>}
                   </dl>
                   {step === "bag" ? (
                     <button onClick={() => { track("checkout_start"); setStep("details") }} disabled={!canCheckout} data-cursor="NEXT" className="label group relative mt-5 w-full overflow-hidden bg-[var(--ink)] py-4 text-[var(--paper)] disabled:opacity-60">
                       <span className="absolute inset-0 origin-bottom scale-y-0 bg-[var(--paper)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-y-100" />
-                      <span className="relative mix-blend-difference">{bagError ? "Update your bag" : `Checkout — ${price(total)}`}</span>
+                      <span className="relative mix-blend-difference">{bagError ? "Update your bag" : `Checkout — ${dueLabel}`}</span>
                     </button>
                   ) : (
-                    <button form="checkout" type="submit" disabled={busy || !canCheckout || Boolean(q?.codeError)} data-cursor="PAY" className="label group relative mt-5 w-full overflow-hidden bg-[var(--ink)] py-4 text-[var(--paper)] disabled:opacity-60">
+                    <button form="checkout" type="submit" disabled={busy || !canCheckout || Boolean(q?.codeError) || Boolean(q?.giftError)} data-cursor="PAY" className="label group relative mt-5 w-full overflow-hidden bg-[var(--ink)] py-4 text-[var(--paper)] disabled:opacity-60">
                       <span className="absolute inset-0 origin-bottom scale-y-0 bg-[var(--paper)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-y-100" />
-                      <span className="relative mix-blend-difference">{busy ? "Placing order…" : `Place order — ${price(total)}`}</span>
+                      <span className="relative mix-blend-difference">{busy ? "Placing order…" : `Place order — ${dueLabel}`}</span>
                     </button>
                   )}
                   {(bagError || ship.error) && step === "bag" && <p className="label mt-3 leading-relaxed text-[#b3261e]">{bagError || ship.error}</p>}

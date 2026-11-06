@@ -16,6 +16,9 @@ export interface SuccessData {
   shipping: number
   /** after sale, before the code */
   subtotal: number
+  /** paid by gift card, and what's still due */
+  giftAmount: number
+  amountDue: number
   /** e.g. "3–7 business days" (empty when unknown) */
   estimate: string
   /** name and address lines, separated by newlines */
@@ -113,6 +116,8 @@ export function OrderSuccess({ data, onClose }: { data: SuccessData | null; onCl
                 {data.discount > 0 && <div className="flex justify-between"><dt>Discount</dt><dd>−{price(data.discount)}</dd></div>}
                 <div className="flex justify-between"><dt>Shipping</dt><dd>{data.shipping ? price(data.shipping) : "Free"}</dd></div>
                 <div className="flex justify-between text-[12px]"><dt>Total</dt><dd>{price(data.total)}</dd></div>
+                {data.giftAmount > 0 && <div className="flex justify-between"><dt>Gift card</dt><dd>−{price(data.giftAmount)}</dd></div>}
+                {data.giftAmount > 0 && <div className="flex justify-between text-[12px]"><dt>{data.amountDue === 0 ? "Paid in full" : "To pay"}</dt><dd>{price(data.amountDue)}</dd></div>}
               </dl>
               {(data.shipTo || data.estimate) && (
                 <div className="mt-8 border-t pt-5">

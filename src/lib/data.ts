@@ -61,6 +61,9 @@ export interface Order {
   payment: string
   /** where it ships to and how shipping was priced (orders placed before address collection have none) */
   ship?: { country: string; address: string; city: string; state: string; postcode: string; method: string; estimate: string } | null
+  /** paid (partly or fully) with a gift card */
+  giftCode?: string | null
+  giftAmount?: number
   /** set when the order was marked shipped with a tracking number */
   tracking?: { carrier: string; number: string; url: string } | null
   shippedAt?: string | null

@@ -69,6 +69,8 @@ export const toOrder = (r: any): Order => ({
   channel: r.channel,
   payment: r.payment,
   ship: r.ship_country || r.ship_address ? { country: r.ship_country ?? "", address: r.ship_address ?? "", city: r.ship_city ?? "", state: r.ship_state ?? "", postcode: r.ship_postcode ?? "", method: r.ship_method ?? "", estimate: r.ship_estimate ?? "" } : null,
+  giftCode: r.gift_code ?? null,
+  giftAmount: r.gift_amount ?? 0,
   tracking: r.tracking_number ? { carrier: r.tracking_carrier ?? "", number: r.tracking_number, url: r.tracking_url ?? "" } : null,
   shippedAt: r.shipped_at ?? null,
 })

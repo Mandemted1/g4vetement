@@ -71,6 +71,7 @@ async function loadOrder(orderId: string) {
     discount: o.discount,
     shipping: o.shipping,
     total: o.total,
+    giftAmount: o.gift_amount > 0 ? o.gift_amount : undefined,
     shipTo: shipToLines(o, o.customers?.name ?? ""),
     estimate: o.ship_estimate || undefined,
     tracking: o.tracking_number ? { carrier: o.tracking_carrier ?? "", number: o.tracking_number, url: o.tracking_url ?? "" } : undefined,

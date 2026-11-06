@@ -45,6 +45,8 @@ export async function setOrderStatus(orderId: string, next: OrderStatus): Promis
       await db.rpc("adjust_stock", { p_product: it.product_id, p_size: it.size, p_delta: it.qty })
     }
   }
+  // the part paid with a gift card goes back on the card (once)
+  if (next === "cancelled" || next === "refunded") await db.rpc("restore_gift_card", { p_order: orderId })
   refresh()
   if (next === "shipped") after(() => sendOrderEmail(orderId, "order_shipped"))
   return { ok: true }
