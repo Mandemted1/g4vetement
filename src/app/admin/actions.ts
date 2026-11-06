@@ -7,10 +7,10 @@ import { sendOrderEmail } from "@/lib/email/service"
 import { cloudinaryConfigured, uploadTicket } from "@/lib/cloudinary"
 import { adminClient, currentStaff, noAccess } from "@/lib/admin-auth"
 import { roleCan } from "@/lib/permissions"
+import { nextProductIds, productRow, validateProduct, type ProductInput } from "@/lib/product-input"
 import { sessionClient } from "@/lib/supabase/clients"
 import { isLive } from "@/lib/supabase/env"
-import type { GarmentType, OrderStatus } from "@/lib/data"
-import { isDepartment, type Department } from "@/lib/departments"
+import type { OrderStatus } from "@/lib/data"
 import type { LoginSettings, Policies, StoreSettings } from "@/lib/settings-types"
 import { cleanPolicies, cleanStore } from "@/lib/settings-validate"
 import { cleanTracking, type Tracking } from "@/lib/tracking"
@@ -100,51 +100,15 @@ export async function saveTracking(orderId: string, tracking: TrackingInput, res
 
 export type TrackingInput = { carrier: string; number: string; url?: string }
 
-export interface ProductInput {
-  name: string
-  /** men / women / unisex */
-  department: Department
-  category: string
-  type: GarmentType
-  price: number
-  /** units left per size; every size in `sizes` needs an entry. The product's total stock is worked out from this. */
-  sizeStock: Record<string, number>
-  reorderLevel: number
-  description: string
-  fabric: string
-  fit: string
-  active: boolean
-  colors: { name: string; hex: string }[]
-  sizes: string[]
-  images: string[]
-}
-
-function validate(p: ProductInput): string | null {
-  if (!p.name.trim()) return "Name is required"
-  if (!isDepartment(p.department)) return "Choose Men, Women or Unisex"
-  if (!Number.isInteger(p.price) || p.price < 0) return "Price must be a whole number of dollars"
-  for (const s of p.sizes) {
-    const n = p.sizeStock[s]
-    if (!Number.isInteger(n) || n < 0) return `Stock for size ${s} must be a whole number, 0 or more`
-  }
-  if (!Number.isInteger(p.reorderLevel) || p.reorderLevel < 0) return "Reorder level must be 0 or more"
-  if (p.colors.length === 0) return "Add at least one colour"
-  if (p.sizes.length === 0) return "Add at least one size"
-  if (new Set(p.sizes.map((x) => x.toLowerCase())).size !== p.sizes.length) return "Two sizes have the same name"
-  return null
-}
-const row = (p: ProductInput) => ({
-  name: p.name.trim(), department: p.department, category: p.category.trim() || "Other", type: p.type, price: p.price, size_stock: Object.fromEntries(p.sizes.map((s) => [s, p.sizeStock[s] ?? 0])), reorder_level: p.reorderLevel,
-  description: p.description, fabric: p.fabric, fit: p.fit, active: p.active, colors: p.colors, sizes: p.sizes, images: p.images,
-})
+export type { ProductInput } from "@/lib/product-input"
 
 export async function updateProduct(id: string, input: ProductInput): Promise<Result> {
   if (!isLive) return DEMO
   const db = await admin("products.manage")
   if (!db) return { ok: false, error: await noAccess("products.manage") }
-  const bad = validate(input)
+  const bad = validateProduct(input)
   if (bad) return { ok: false, error: bad }
-  const { error } = await db.from("products").update(row(input)).eq("id", id)
+  const { error } = await db.from("products").update(productRow(input)).eq("id", id)
   if (error) return msg(error)
   refresh()
   return { ok: true }
@@ -154,14 +118,11 @@ export async function createProduct(input: ProductInput): Promise<Result<{ id: s
   if (!isLive) return DEMO
   const db = await admin("products.manage")
   if (!db) return { ok: false, error: await noAccess("products.manage") }
-  const bad = validate(input)
+  const bad = validateProduct(input)
   if (bad) return { ok: false, error: bad }
   const { data: all } = await db.from("products").select("id, sort")
-  const n = Math.max(0, ...(all ?? []).map((r) => Number(String(r.id).replace(/\D/g, "")) || 0)) + 1
-  const id = `p${String(n).padStart(2, "0")}`
-  const sort = Math.max(0, ...(all ?? []).map((r) => r.sort ?? 0)) + 1
-  const sku = `G4-${input.category.slice(0, 3).toUpperCase()}-${String(n).padStart(3, "0")}`
-  const { error } = await db.from("products").insert({ id, sku, sort, ...row(input) })
+  const [{ id, sku, sort }] = nextProductIds((all ?? []).map((r) => r.id), (all ?? []).map((r) => r.sort ?? 0), [input.category])
+  const { error } = await db.from("products").insert({ id, sku, sort, ...productRow(input) })
   if (error) return msg(error)
   refresh()
   return { ok: true, id }

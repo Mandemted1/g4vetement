@@ -38,7 +38,9 @@
     "test-carts": "tsx --conditions=react-server --env-file=.env.local scripts/test-carts.mts",
     "test-policy-text": "tsx scripts/test-policy-text.mts",
     "test-permissions": "tsx --env-file=.env.local scripts/test-permissions.mts",
-    "test-roles-db": "tsx --env-file=.env.local scripts/test-roles-db.mts"
+    "test-roles-db": "tsx --env-file=.env.local scripts/test-roles-db.mts",
+    "test-csv": "tsx scripts/test-csv.mts",
+    "test-import-export": "tsx scripts/test-import-export.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

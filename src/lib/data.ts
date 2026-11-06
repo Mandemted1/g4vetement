@@ -64,6 +64,8 @@ export interface Order {
   /** paid (partly or fully) with a gift card */
   giftCode?: string | null
   giftAmount?: number
+  /** demo data made by the simulator, not a real customer order */
+  sim?: boolean
   /** set when the order was marked shipped with a tracking number */
   tracking?: { carrier: string; number: string; url: string } | null
   shippedAt?: string | null
