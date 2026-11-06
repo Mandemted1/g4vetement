@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { EyeIcon, EyeOffIcon } from "lucide-react"
 import { browserClient } from "@/lib/supabase/browser"
 import { cn } from "@/lib/utils"
 
@@ -12,6 +13,7 @@ export function LoginForm({ tone = "light", tagline }: { tone?: "light" | "dark"
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
+  const [show, setShow] = useState(false)
   const dark = tone === "dark"
 
   const submit = async (e: React.FormEvent) => {
@@ -43,10 +45,21 @@ export function LoginForm({ tone = "light", tagline }: { tone?: "light" | "dark"
           Email
           <input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={input} />
         </label>
-        <label className="flex flex-col gap-1.5 text-sm">
-          Password
-          <input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} className={input} />
-        </label>
+        <div className="flex flex-col gap-1.5 text-sm">
+          <label htmlFor="admin-password">Password</label>
+          <div className="relative">
+            <input id="admin-password" type={show ? "text" : "password"} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} className={cn(input, "pr-11")} />
+            <button
+              type="button"
+              onClick={() => setShow((v) => !v)}
+              aria-label={show ? "Hide password" : "Show password"}
+              aria-pressed={show}
+              className={cn("absolute right-1.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md transition-colors", dark ? "text-white/60 hover:bg-white/10 hover:text-white" : "text-muted-foreground hover:bg-muted hover:text-foreground")}
+            >
+              {show ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+            </button>
+          </div>
+        </div>
         {error && <p className={cn("text-sm", dark ? "text-red-300" : "text-negative")}>{error}</p>}
         <button
           type="submit"
