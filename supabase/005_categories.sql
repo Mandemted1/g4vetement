@@ -33,7 +33,7 @@ create or replace function rename_category(p_id uuid, p_name text) returns void
 language plpgsql security definer set search_path = public as $$
 declare old_name text; new_name text := trim(p_name);
 begin
-  if not is_admin() then raise exception 'Not allowed'; end if;
+  if auth.uid() is not null and not is_admin() then raise exception 'Not allowed'; end if;   -- admins and the service role only
   if new_name = '' or length(new_name) > 40 then raise exception 'Category names must be 1 to 40 characters'; end if;
   select name into old_name from categories where id = p_id;
   if old_name is null then raise exception 'Category not found'; end if;
@@ -47,7 +47,7 @@ create or replace function delete_category(p_id uuid, p_move_to text default nul
 language plpgsql security definer set search_path = public as $$
 declare old_name text; moved integer := 0;
 begin
-  if not is_admin() then raise exception 'Not allowed'; end if;
+  if auth.uid() is not null and not is_admin() then raise exception 'Not allowed'; end if;   -- admins and the service role only
   select name into old_name from categories where id = p_id;
   if old_name is null then raise exception 'Category not found'; end if;
   if exists (select 1 from products where category = old_name) then
