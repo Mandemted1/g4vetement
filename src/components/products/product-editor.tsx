@@ -13,6 +13,7 @@ import { createCategory } from "@/app/admin/(panel)/category-actions"
 import { SmartImage } from "@/components/smart-image"
 import { uploadImage } from "@/lib/upload"
 import type { GarmentType, Product } from "@/lib/data"
+import { DEPARTMENT_OPTIONS, type Department } from "@/lib/departments"
 
 const TYPES: { value: GarmentType; label: string }[] = [
   { value: "tee", label: "T-shirt" }, { value: "longsleeve", label: "Long sleeve" }, { value: "hoodie", label: "Hoodie" }, { value: "zip", label: "Zip hoodie" },
@@ -22,11 +23,11 @@ const TYPES: { value: GarmentType; label: string }[] = [
 ]
 
 const blank: ProductInput = {
-  name: "", category: "Tees", type: "tee", price: 40, sizeStock: { S: 5, M: 5, L: 5, XL: 5 }, reorderLevel: 10, description: "", fabric: "", fit: "",
+  name: "", department: "men", category: "Tees", type: "tee", price: 40, sizeStock: { S: 5, M: 5, L: 5, XL: 5 }, reorderLevel: 10, description: "", fabric: "", fit: "",
   active: true, colors: [{ name: "Black", hex: "#141414" }], sizes: ["S", "M", "L", "XL"], images: [],
 }
 const fromProduct = (p: Product): ProductInput => ({
-  name: p.name, category: p.category, type: p.type, price: p.price, sizeStock: p.sizeStock, reorderLevel: p.reorderLevel, description: p.description,
+  name: p.name, department: p.department, category: p.category, type: p.type, price: p.price, sizeStock: p.sizeStock, reorderLevel: p.reorderLevel, description: p.description,
   fabric: p.fabric, fit: p.fit, active: p.active, colors: p.colors, sizes: p.sizes, images: p.images,
 })
 
@@ -221,6 +222,12 @@ function Form({ product, categories, onClose }: { product: Product | null; categ
       </div>
 
       <label className={field}>Name<Input value={f.name} onChange={(e) => set("name", e.target.value)} /></label>
+      <label className={field}>Department
+        <select value={f.department} onChange={(e) => set("department", e.target.value as Department)} className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm">
+          {DEPARTMENT_OPTIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+        </select>
+        <span className="text-xs font-normal text-muted-foreground">Which side of the store it appears on. Categories below are shared by both.</span>
+      </label>
       <div className="grid grid-cols-2 gap-3">
         <label className={field}>Category
           {addCat ? (

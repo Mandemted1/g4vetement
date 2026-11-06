@@ -7,7 +7,7 @@ import { useCatalog } from "./catalog"
 import { Reveal } from "./fx"
 
 export function StoreFooter() {
-  const { categories, store, policyLinks } = useCatalog()
+  const { categories, sections, store, policyLinks } = useCatalog()
   const [email, setEmail] = useState("")
   const [sent, setSent] = useState(false)
   const [error, setError] = useState("")
@@ -39,9 +39,11 @@ export function StoreFooter() {
           <p className="label text-[var(--mute)]">Shop</p>
           <ul className="label mt-4 space-y-2.5">
             <li><Link href="/shop" className="u">All products</Link></li>
-            {categories.map((c) => (
-              <li key={c}><Link href={`/shop?c=${encodeURIComponent(c)}`} className="u">{c}</Link></li>
-            ))}
+            {sections.length > 0
+              ? sections.map((s) => <li key={s.key}><Link href={`/shop?d=${s.key}`} className="u">{s.label}</Link></li>)
+              : categories.map((c) => (
+                  <li key={c}><Link href={`/shop?c=${encodeURIComponent(c)}`} className="u">{c}</Link></li>
+                ))}
           </ul>
         </Reveal>
         <Reveal delay={0.2} className="md:col-span-2">

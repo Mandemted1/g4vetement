@@ -13,7 +13,7 @@ const EASE = [0.76, 0, 0.24, 1] as const
 
 export function StoreHeader() {
   const { count, setOpen, bumped } = useCart()
-  const { shop, categories, policyLinks, shipping } = useCatalog()
+  const { shop, categories, sections, policyLinks, shipping } = useCatalog()
   const [menu, setMenu] = useState(false)
   const [search, setSearch] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -47,9 +47,12 @@ export function StoreHeader() {
     return () => window.removeEventListener("keydown", onKey)
   }, [])
 
-  const links = [
+  // with Men and Women both stocked: Men / Women, each with its categories underneath; otherwise one flat list
+  const links: { label: string; href: string; n: number; subs?: { label: string; href: string }[] }[] = [
     { label: "All products", href: "/shop", n: shop.length },
-    ...categories.map((c) => ({ label: c, href: `/shop?c=${encodeURIComponent(c)}`, n: shop.filter((p) => p.category === c).length })),
+    ...(sections.length
+      ? sections.map((s) => ({ label: s.label, href: `/shop?d=${s.key}`, n: s.count, subs: s.categories.map((c) => ({ label: c, href: `/shop?d=${s.key}&c=${encodeURIComponent(c)}` })) }))
+      : categories.map((c) => ({ label: c, href: `/shop?c=${encodeURIComponent(c)}`, n: shop.filter((p) => p.category === c).length }))),
   ]
 
   return (
@@ -101,6 +104,13 @@ export function StoreHeader() {
                       <span>{l.label}</span>
                       <span className="label tracking-normal">{pad(l.n)}</span>
                     </Link>
+                    {l.subs && l.subs.length > 0 && (
+                      <div className="label flex flex-wrap gap-x-6 gap-y-2 pb-4 text-[var(--mute)]">
+                        {l.subs.map((s) => (
+                          <Link key={s.href} href={s.href} onClick={() => setMenu(false)} data-cursor="GO" className="u transition-colors hover:text-[var(--ink)]">{s.label}</Link>
+                        ))}
+                      </div>
+                    )}
                   </motion.div>
                 </li>
               ))}

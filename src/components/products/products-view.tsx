@@ -12,6 +12,7 @@ import { ProductThumb } from "@/components/product-thumb"
 import { ProductEditor } from "@/components/products/product-editor"
 import { useAdmin } from "@/components/admin-data"
 import { isBooked, stockState, type Product } from "@/lib/data"
+import { departmentLabel } from "@/lib/departments"
 import { searchProducts } from "@/lib/search"
 import { soldOutSizes } from "@/lib/stock"
 import { int, money } from "@/lib/format"
@@ -98,7 +99,7 @@ export function ProductsView() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="hidden text-muted-foreground md:table-cell">{p.category}</TableCell>
+                    <TableCell className="hidden text-muted-foreground md:table-cell">{departmentLabel(p.department)} · {p.category}</TableCell>
                     <TableCell className="text-right tabular">{money(p.price)}</TableCell>
                     <TableCell className="hidden text-right tabular sm:table-cell">{int(s.units)}</TableCell>
                     <TableCell className="hidden text-right font-medium tabular sm:table-cell">{money(s.revenue)}</TableCell>

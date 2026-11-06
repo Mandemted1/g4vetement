@@ -9,6 +9,7 @@ import { adminClient } from "@/lib/admin-auth"
 import { sessionClient } from "@/lib/supabase/clients"
 import { isLive } from "@/lib/supabase/env"
 import type { GarmentType, OrderStatus } from "@/lib/data"
+import { isDepartment, type Department } from "@/lib/departments"
 import type { LoginSettings, Policies, StoreSettings } from "@/lib/settings-types"
 import { cleanPolicies, cleanStore } from "@/lib/settings-validate"
 import { cleanTracking, type Tracking } from "@/lib/tracking"
@@ -97,6 +98,8 @@ export type TrackingInput = { carrier: string; number: string; url?: string }
 
 export interface ProductInput {
   name: string
+  /** men / women / unisex */
+  department: Department
   category: string
   type: GarmentType
   price: number
@@ -114,6 +117,7 @@ export interface ProductInput {
 
 function validate(p: ProductInput): string | null {
   if (!p.name.trim()) return "Name is required"
+  if (!isDepartment(p.department)) return "Choose Men, Women or Unisex"
   if (!Number.isInteger(p.price) || p.price < 0) return "Price must be a whole number of dollars"
   for (const s of p.sizes) {
     const n = p.sizeStock[s]
@@ -126,7 +130,7 @@ function validate(p: ProductInput): string | null {
   return null
 }
 const row = (p: ProductInput) => ({
-  name: p.name.trim(), category: p.category.trim() || "Other", type: p.type, price: p.price, size_stock: Object.fromEntries(p.sizes.map((s) => [s, p.sizeStock[s] ?? 0])), reorder_level: p.reorderLevel,
+  name: p.name.trim(), department: p.department, category: p.category.trim() || "Other", type: p.type, price: p.price, size_stock: Object.fromEntries(p.sizes.map((s) => [s, p.sizeStock[s] ?? 0])), reorder_level: p.reorderLevel,
   description: p.description, fabric: p.fabric, fit: p.fit, active: p.active, colors: p.colors, sizes: p.sizes, images: p.images,
 })
 

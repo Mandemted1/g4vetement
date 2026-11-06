@@ -1,5 +1,7 @@
 /** Shared types + pure helpers. Data itself comes from src/lib/source.ts (server) and the providers. */
 
+import type { Department } from "./departments"
+
 export type OrderStatus = "pending" | "processing" | "shipped" | "delivered" | "cancelled" | "refunded"
 export type GarmentType = "tee" | "longsleeve" | "hoodie" | "zip" | "sweat" | "jogger" | "cargo" | "straight" | "wide" | "shorts" | "coach" | "bomber" | "puffer" | "beanie" | "cap" | "tote" | "socks"
 
@@ -8,6 +10,8 @@ export interface Product {
   sku: string
   name: string
   category: string
+  /** men / women / unisex (unisex is listed under both) */
+  department: Department
   type: GarmentType
   price: number
   colors: { name: string; hex: string }[]

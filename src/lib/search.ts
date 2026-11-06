@@ -13,6 +13,8 @@ export interface Searchable {
   fabric: string
   fit: string
   stock: number
+  /** men / women / unisex, so searching "women" finds women's pieces */
+  department?: string
 }
 
 /** what shoppers say -> what the catalog says (both sides are stemmed first, so plurals are already handled) */
@@ -53,6 +55,7 @@ interface Field { weight: number; words: string[] }
 const fieldsOf = (p: Searchable, codes: boolean): Field[] => [
   { weight: 10, words: words(p.name) },
   { weight: 6, words: words(p.category) },
+  ...(p.department ? [{ weight: 6, words: p.department === "unisex" ? ["unisex", "men", "women"] : [p.department] }] : []),
   { weight: 5, words: p.colors.flatMap((c) => words(c.name)) },
   ...(codes ? [{ weight: 4, words: words(p.sku) }] : []),
   { weight: 2, words: words(`${p.description} ${p.fabric} ${p.fit}`) },

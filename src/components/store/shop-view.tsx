@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
+import { SECTIONS, inSection, type Section } from "@/lib/departments"
 import { searchProducts } from "@/lib/search"
 import { pad, sortedForGrid } from "@/lib/store"
 import { useCatalog } from "./catalog"
@@ -12,37 +13,64 @@ import { Rise } from "./fx"
 
 type View = "grid" | "index"
 
-export function ShopView({ initial, query = "" }: { initial: string; query?: string }) {
-  const { shop, categories } = useCatalog()
-  const [cat, setCat] = useState(categories.includes(initial as never) ? initial : "All")
+export function ShopView({ initial, initialSection = "all", query = "" }: { initial: string; initialSection?: Section | "all"; query?: string }) {
+  const { shop, categories: allCategories, sections } = useCatalog()
+  // Men / Women only exist as a choice when both sides have products
+  const [section, setSection] = useState<Section | "all">(sections.some((s) => s.key === initialSection) ? initialSection : "all")
+  const [cat, setCat] = useState(allCategories.includes(initial as never) ? initial : "All")
   const [view, setView] = useState<View>("grid")
 
   // a search narrows the shop first (best match first); the category tabs then narrow it further
-  const base = useMemo(() => (query ? searchProducts(shop, query) : shop), [shop, query])
-  const list = useMemo(() => sortedForGrid(cat === "All" ? base : base.filter((p) => p.category === cat)), [cat, base])
+  const searched = useMemo(() => (query ? searchProducts(shop, query) : shop), [shop, query])
+  const base = useMemo(() => (section === "all" ? searched : searched.filter((p) => inSection(p, section))), [searched, section])
+  // categories shown are the ones that have something in this section
+  const categories = useMemo(() => allCategories.filter((c) => base.some((p) => p.category === c)), [allCategories, base])
+  const activeCat = cat !== "All" && !categories.includes(cat) ? "All" : cat
+  const list = useMemo(() => sortedForGrid(activeCat === "All" ? base : base.filter((p) => p.category === activeCat)), [activeCat, base])
   const tabs = ["All", ...categories]
   const count = (c: string) => (c === "All" ? base.length : base.filter((p) => p.category === c).length)
+  const sectionLabel = SECTIONS.find((s) => s.key === section)?.label
 
-  const pick = (c: string) => {
-    setCat(c)
+  const sync = (s: Section | "all", c: string) => {
     try {
       const params = new URLSearchParams()
+      if (s !== "all") params.set("d", s)
       if (c !== "All") params.set("c", c)
       if (query) params.set("q", query)
       window.history.replaceState(null, "", params.size ? `/shop?${params}` : "/shop")
     } catch {}
   }
+  const pick = (c: string) => {
+    setCat(c)
+    sync(section, c)
+  }
+  const pickSection = (s: Section | "all") => {
+    setSection(s)
+    // keep the category only if the new section has it
+    const keep = s === "all" || searched.some((p) => inSection(p, s) && p.category === cat) ? cat : "All"
+    setCat(keep)
+    sync(s, keep)
+  }
 
   return (
     <div className="px-5 pb-10 pt-28 md:px-8 md:pt-36">
       <div className="flex items-end justify-between">
-        <Rise as="h1" text={query ? "Search" : cat === "All" ? "Shop" : cat} className="text-[clamp(3rem,10vw,9rem)] font-medium leading-[0.85] tracking-[-0.06em]" />
+        <Rise as="h1" text={query ? "Search" : activeCat !== "All" ? activeCat : sectionLabel ?? "Shop"} className="text-[clamp(3rem,10vw,9rem)] font-medium leading-[0.85] tracking-[-0.06em]" />
         <span className="label pb-2">{pad(list.length)} items</span>
       </div>
+      {sections.length > 0 && (
+        <div className="label mt-6 flex gap-6" role="tablist" aria-label="Department">
+          {([{ key: "all" as const, label: "All" }, ...sections]).map((s) => (
+            <button key={s.key} role="tab" aria-selected={section === s.key} onClick={() => pickSection(s.key)} data-cursor="FILTER" className={section === s.key ? "" : "text-[var(--mute)] transition-colors hover:text-[var(--ink)]"}>
+              <span className={section === s.key ? "u !bg-[length:100%_1px]" : "u"}>{s.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {query && (
         <p className="label mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-[var(--mute)]">
           <span>Results for “{query}”</span>
-          <Link href={cat === "All" ? "/shop" : `/shop?c=${encodeURIComponent(cat)}`} className="u text-[var(--ink)]" data-cursor="CLEAR">Clear search</Link>
+          <Link href={activeCat === "All" ? "/shop" : `/shop?c=${encodeURIComponent(activeCat)}`} className="u text-[var(--ink)]" data-cursor="CLEAR">Clear search</Link>
         </p>
       )}
 
@@ -50,10 +78,10 @@ export function ShopView({ initial, query = "" }: { initial: string; query?: str
         <div className="no-scrollbar flex gap-6 overflow-x-auto">
           {tabs.map((t) => (
             <button key={t} onClick={() => pick(t)} data-cursor="FILTER" className="label relative shrink-0 py-4">
-              <span className={cat === t ? "" : "text-[var(--mute)] transition-colors hover:text-[var(--ink)]"}>
+              <span className={activeCat === t ? "" : "text-[var(--mute)] transition-colors hover:text-[var(--ink)]"}>
                 {t} <sup className="text-[8px]">{count(t)}</sup>
               </span>
-              {cat === t && <motion.span layoutId="tab-line" className="absolute inset-x-0 -bottom-[1px] h-px bg-[var(--ink)]" transition={{ type: "spring", stiffness: 420, damping: 36 }} />}
+              {activeCat === t && <motion.span layoutId="tab-line" className="absolute inset-x-0 -bottom-[1px] h-px bg-[var(--ink)]" transition={{ type: "spring", stiffness: 420, damping: 36 }} />}
             </button>
           ))}
         </div>
@@ -68,7 +96,7 @@ export function ShopView({ initial, query = "" }: { initial: string; query?: str
 
       <div className="mt-10 md:mt-14">
         {query && list.length === 0 && (
-          <p className="max-w-md text-[15px] leading-relaxed">Nothing matches “{query}”{cat !== "All" ? ` in ${cat}` : ""}. Check the spelling, or <Link href="/shop" className="u">browse everything</Link>.</p>
+          <p className="max-w-md text-[15px] leading-relaxed">Nothing matches “{query}”{activeCat !== "All" ? ` in ${activeCat}` : ""}. Check the spelling, or <Link href="/shop" className="u">browse everything</Link>.</p>
         )}
         {view === "grid" ? (
           <motion.div layout className="grid grid-cols-2 gap-x-3 gap-y-12 md:grid-cols-3 md:gap-x-6 md:gap-y-20 lg:grid-cols-4 lg:[&>div:nth-child(4n+2)]:mt-14 lg:[&>div:nth-child(4n+4)]:mt-28">

@@ -15,6 +15,7 @@ function demoProducts(): Product[] {
     sku: p.sku,
     name: p.name,
     category: p.category,
+    department: "men",
     type: META[p.id].type,
     price: p.price,
     colors: p.colors,
@@ -38,6 +39,7 @@ const toProduct = (r: any): Product => ({
   sku: r.sku,
   name: r.name,
   category: r.category,
+  department: r.department === "women" || r.department === "unisex" ? r.department : "men",
   type: r.type,
   price: r.price,
   colors: r.colors ?? [],
@@ -51,7 +53,7 @@ const toProduct = (r: any): Product => ({
   images: r.images ?? [],
   active: r.active,
 })
-const toOrder = (r: any): Order => ({
+export const toOrder = (r: any): Order => ({
   id: r.id,
   number: r.number,
   date: r.created_at,

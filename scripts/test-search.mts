@@ -45,3 +45,16 @@ ok("a name match ranks above a description mention ('hoodie')", names("hoodie")[
 ok("results are exactly the matching products (no duplicates)", new Set(names("black")).size === names("black").length && names("black").length === 10)
 ok("in-stock products come before sold-out ones on a tie", names("bottoms").at(-1) === "Straight Fit Denim")
 ok("punctuation is ignored ('hoodies & sweats')", names("hoodies & sweats").length === 2)
+
+// ---- departments: "women" / "men"
+const dshop: Searchable[] = [
+  P("Boxy Tee", "Tees", ["Black"], { department: "men" }),
+  P("Fitted Tee", "Tees", ["Black"], { department: "women" }),
+  P("Canvas Tote", "Accessories", ["Sand"], { department: "unisex" }),
+]
+const dn = (q: string) => searchProducts(dshop, q).map((p) => p.name).sort().join()
+ok("'women' finds women's pieces and unisex ones", dn("women") === "Canvas Tote,Fitted Tee")
+ok("'men' finds men's pieces and unisex ones (and not women's)", dn("men") === "Boxy Tee,Canvas Tote")
+ok("'womens tee' combines department and product type", dn("womens tee") === "Fitted Tee")
+ok("'mens' works too", dn("mens") === "Boxy Tee,Canvas Tote")
+ok("'unisex' finds unisex pieces", dn("unisex") === "Canvas Tote")
