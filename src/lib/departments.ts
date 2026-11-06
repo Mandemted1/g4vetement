@@ -21,3 +21,19 @@ export const isDepartment = (s: string): s is Department => s === "men" || s ===
 
 /** Unisex products appear in both sections. */
 export const inSection = (p: { department: Department }, s: Section) => p.department === s || p.department === "unisex"
+
+/** Which side(s) of the store a category belongs to. */
+export type CategoryDepartment = "men" | "women" | "both"
+export const CATEGORY_DEPARTMENT_OPTIONS: { value: CategoryDepartment; label: string }[] = [
+  { value: "both", label: "Both Men and Women" },
+  { value: "men", label: "Men only" },
+  { value: "women", label: "Women only" },
+]
+export const categoryDepartmentLabel = (d: CategoryDepartment) => ({ both: "Men & Women", men: "Men", women: "Women" })[d] ?? "Men & Women"
+export const isCategoryDepartment = (s: string): s is CategoryDepartment => s === "men" || s === "women" || s === "both"
+
+/** Can a product in this department use a category of that department? (Unisex products can use any.) */
+export const categoryFits = (category: CategoryDepartment, product: Department) => category === "both" || product === "unisex" || category === product
+
+/** The department a new category should get when it is created from a product: that product's side (unisex = both). */
+export const categoryDepartmentFor = (product: Department): CategoryDepartment => (product === "unisex" ? "both" : product)

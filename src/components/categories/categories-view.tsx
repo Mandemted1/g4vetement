@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { createCategory, deleteCategory, moveCategory, updateCategory } from "@/app/admin/(panel)/category-actions"
 import { useAdmin } from "@/components/admin-data"
 import type { Category } from "@/lib/data"
+import { CATEGORY_DEPARTMENT_OPTIONS, categoryDepartmentLabel, type CategoryDepartment } from "@/lib/departments"
 import { cn } from "@/lib/utils"
 
 export function CategoriesView() {
@@ -18,8 +19,10 @@ export function CategoriesView() {
   const [pending, start] = useTransition()
   const [error, setError] = useState("")
   const [name, setName] = useState("")
+  const [dept, setDept] = useState<CategoryDepartment>("both")
+  const [show, setShow] = useState<"all" | CategoryDepartment>("all")
   const [editing, setEditing] = useState<string | null>(null)
-  const [draft, setDraft] = useState({ name: "", description: "" })
+  const [draft, setDraft] = useState<{ name: string; description: string; department: CategoryDepartment }>({ name: "", description: "", department: "both" })
   const [deleting, setDeleting] = useState<string | null>(null)
   const [moveTo, setMoveTo] = useState("")
 
@@ -42,7 +45,7 @@ export function CategoriesView() {
 
   const startEdit = (c: Category) => {
     setEditing(c.id)
-    setDraft({ name: c.name, description: c.description })
+    setDraft({ name: c.name, description: c.description, department: c.department })
     setDeleting(null)
   }
   const startDelete = (c: Category) => {
@@ -55,7 +58,7 @@ export function CategoriesView() {
     <div className="flex flex-col gap-6">
       <div className="rise">
         <h1 className="text-2xl font-semibold tracking-tight">Categories</h1>
-        <p className="mt-1 text-sm text-muted-foreground">The groups shoppers browse by. Changes show on the store straight away.</p>
+        <p className="mt-1 text-sm text-muted-foreground">The groups shoppers browse by, under Men and Women. Changes show on the store straight away.</p>
       </div>
 
       {mode === "demo" && <p className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm">Demo mode: connect Supabase to add or change categories.</p>}
@@ -86,12 +89,24 @@ export function CategoriesView() {
               if (name.trim()) run(() => createCategory(name), () => setName(""))
             }}
           >
-            <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="New category, e.g. Footwear" className="max-w-xs" />
+            <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="New category, e.g. Dresses" className="max-w-xs" aria-label="New category name" />
+            <select value={dept} onChange={(e) => setDept(e.target.value as CategoryDepartment)} aria-label="Department" className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm">
+              {CATEGORY_DEPARTMENT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
             <Button type="submit" disabled={pending || !name.trim()}><PlusIcon /> Add</Button>
           </form>
 
+          <div className="flex flex-wrap items-center gap-1.5 text-sm" role="group" aria-label="Show categories for">
+            <span className="mr-1 text-muted-foreground">Show:</span>
+            {([["all", "All"], ["men", "Men"], ["women", "Women"], ["both", "Shared"]] as const).map(([v, label]) => (
+              <button key={v} type="button" aria-pressed={show === v} onClick={() => setShow(v)} className={cn("rounded-full border px-3 py-1 text-xs transition-colors", show === v ? "bg-foreground text-background" : "hover:bg-muted")}>{label}</button>
+            ))}
+            {show !== "all" && <span className="ml-1 text-xs text-muted-foreground">Clear the filter to reorder.</span>}
+          </div>
+
           <ul className="divide-y rounded-lg border">
             {categories.map((c, i) => {
+              if (show !== "all" && c.department !== show) return null
               const n = counts.get(c.name) ?? 0
               const isEditing = editing === c.id
               const isDeleting = deleting === c.id
@@ -102,10 +117,13 @@ export function CategoriesView() {
                       className="flex flex-wrap items-center gap-2"
                       onSubmit={(e) => {
                         e.preventDefault()
-                        run(() => updateCategory(c.id, { name: draft.name, description: draft.description, active: c.active }), () => setEditing(null))
+                        run(() => updateCategory(c.id, { name: draft.name, description: draft.description, active: c.active, department: draft.department }), () => setEditing(null))
                       }}
                     >
                       <Input autoFocus value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} maxLength={40} aria-label="Category name" className="w-48" />
+                      <select value={draft.department} onChange={(e) => setDraft({ ...draft, department: e.target.value as CategoryDepartment })} aria-label="Department" className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm">
+                        {CATEGORY_DEPARTMENT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
                       <Input value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} maxLength={200} placeholder="Short description (optional)" aria-label="Description" className="min-w-48 flex-1" />
                       <Button type="submit" size="sm" disabled={pending}><CheckIcon /> Save</Button>
                       <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
@@ -129,19 +147,20 @@ export function CategoriesView() {
                   ) : (
                     <div className="flex items-center gap-3">
                       <div className="flex flex-col">
-                        <button type="button" aria-label="Move up" disabled={pending || i === 0} onClick={() => run(() => moveCategory(c.id, "up"))} className="rounded p-0.5 text-muted-foreground hover:bg-muted disabled:opacity-25"><ArrowUpIcon className="size-3.5" /></button>
-                        <button type="button" aria-label="Move down" disabled={pending || i === categories.length - 1} onClick={() => run(() => moveCategory(c.id, "down"))} className="rounded p-0.5 text-muted-foreground hover:bg-muted disabled:opacity-25"><ArrowDownIcon className="size-3.5" /></button>
+                        <button type="button" aria-label="Move up" disabled={pending || i === 0 || show !== "all"} onClick={() => run(() => moveCategory(c.id, "up"))} className="rounded p-0.5 text-muted-foreground hover:bg-muted disabled:opacity-25"><ArrowUpIcon className="size-3.5" /></button>
+                        <button type="button" aria-label="Move down" disabled={pending || i === categories.length - 1 || show !== "all"} onClick={() => run(() => moveCategory(c.id, "down"))} className="rounded p-0.5 text-muted-foreground hover:bg-muted disabled:opacity-25"><ArrowDownIcon className="size-3.5" /></button>
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="truncate font-medium">{c.name}</span>
+                          <Badge variant="secondary" className="border-0 bg-muted text-muted-foreground">{categoryDepartmentLabel(c.department)}</Badge>
                           {!c.active && <Badge variant="secondary" className="border-0 bg-muted text-muted-foreground">Hidden</Badge>}
                         </div>
                         {c.description && <p className="truncate text-xs text-muted-foreground">{c.description}</p>}
                       </div>
                       <span className="hidden text-sm tabular text-muted-foreground sm:block">{n} {n === 1 ? "product" : "products"}</span>
                       <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <input type="checkbox" checked={c.active} disabled={pending} onChange={(e) => run(() => updateCategory(c.id, { name: c.name, description: c.description, active: e.target.checked }))} className="size-4" />
+                        <input type="checkbox" checked={c.active} disabled={pending} onChange={(e) => run(() => updateCategory(c.id, { name: c.name, description: c.description, active: e.target.checked, department: c.department }))} className="size-4" />
                         <span className="hidden sm:inline">Visible</span>
                       </label>
                       <Button size="icon" variant="ghost" aria-label={`Edit ${c.name}`} onClick={() => startEdit(c)}><PencilIcon /></Button>

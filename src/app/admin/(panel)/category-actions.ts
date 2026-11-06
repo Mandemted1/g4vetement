@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { adminClient } from "@/lib/admin-auth"
+import { isCategoryDepartment, type CategoryDepartment } from "@/lib/departments"
 import { isLive } from "@/lib/supabase/env"
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string }
@@ -18,26 +19,28 @@ const friendly = (e: { message: string; code?: string }) => {
 }
 const cleanName = (n: string) => n.trim().replace(/\s+/g, " ")
 
-export async function createCategory(name: string, description = ""): Promise<Result<{ id: string; name: string }>> {
+export async function createCategory(name: string, description = "", department: CategoryDepartment = "both"): Promise<Result<{ id: string; name: string }>> {
   if (!isLive) return DEMO
   const db = await admin()
   if (!db) return { ok: false, error: "Please sign in again." }
   const n = cleanName(name)
   if (!n || n.length > 40) return { ok: false, error: "Category names must be 1 to 40 characters." }
+  if (!isCategoryDepartment(department)) return { ok: false, error: "Choose Men, Women or both." }
   const { data: last } = await db.from("categories").select("sort").order("sort", { ascending: false }).limit(1)
   const sort = (last?.[0]?.sort ?? 0) + 1
-  const { data, error } = await db.from("categories").insert({ name: n, description: description.trim().slice(0, 200), sort }).select("id, name").single()
+  const { data, error } = await db.from("categories").insert({ name: n, description: description.trim().slice(0, 200), department, sort }).select("id, name").single()
   if (error || !data) return { ok: false, error: friendly(error ?? { message: "Couldn't save" }) }
   refresh()
   return { ok: true, id: data.id, name: data.name }
 }
 
-export async function updateCategory(id: string, v: { name: string; description: string; active: boolean }): Promise<Result> {
+export async function updateCategory(id: string, v: { name: string; description: string; active: boolean; department: CategoryDepartment }): Promise<Result> {
   if (!isLive) return DEMO
   const db = await admin()
   if (!db) return { ok: false, error: "Please sign in again." }
   const n = cleanName(v.name)
   if (!n || n.length > 40) return { ok: false, error: "Category names must be 1 to 40 characters." }
+  if (!isCategoryDepartment(v.department)) return { ok: false, error: "Choose Men, Women or both." }
   const { data: cur } = await db.from("categories").select("name").eq("id", id).single()
   if (!cur) return { ok: false, error: "Category not found." }
   if (cur.name !== n) {
@@ -45,7 +48,7 @@ export async function updateCategory(id: string, v: { name: string; description:
     const { error } = await db.rpc("rename_category", { p_id: id, p_name: n })
     if (error) return { ok: false, error: friendly(error) }
   }
-  const { error } = await db.from("categories").update({ description: v.description.trim().slice(0, 200), active: v.active }).eq("id", id)
+  const { error } = await db.from("categories").update({ description: v.description.trim().slice(0, 200), active: v.active, department: v.department }).eq("id", id)
   if (error) return { ok: false, error: friendly(error) }
   refresh()
   return { ok: true }

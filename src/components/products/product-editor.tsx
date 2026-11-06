@@ -13,7 +13,7 @@ import { createCategory } from "@/app/admin/(panel)/category-actions"
 import { SmartImage } from "@/components/smart-image"
 import { uploadImage } from "@/lib/upload"
 import type { GarmentType, Product } from "@/lib/data"
-import { DEPARTMENT_OPTIONS, type Department } from "@/lib/departments"
+import { DEPARTMENT_OPTIONS, categoryDepartmentFor, categoryFits, type CategoryDepartment, type Department } from "@/lib/departments"
 
 const TYPES: { value: GarmentType; label: string }[] = [
   { value: "tee", label: "T-shirt" }, { value: "longsleeve", label: "Long sleeve" }, { value: "hoodie", label: "Hoodie" }, { value: "zip", label: "Zip hoodie" },
@@ -135,7 +135,7 @@ function ColorsField({ colors, onChange }: { colors: Colour[]; onChange: (c: Col
 }
 
 /** `product` = edit, `null` = create new. Mount with a key so state resets between products. */
-export function ProductEditor({ product, categories, open, onClose }: { product: Product | null; categories: string[]; open: boolean; onClose: () => void }) {
+export function ProductEditor({ product, categories, open, onClose }: { product: Product | null; categories: { name: string; department: CategoryDepartment }[]; open: boolean; onClose: () => void }) {
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-lg">{open && <Form key={product?.id ?? "new"} product={product} categories={categories} onClose={onClose} />}</SheetContent>
@@ -143,7 +143,7 @@ export function ProductEditor({ product, categories, open, onClose }: { product:
   )
 }
 
-function Form({ product, categories, onClose }: { product: Product | null; categories: string[]; onClose: () => void }) {
+function Form({ product, categories, onClose }: { product: Product | null; categories: { name: string; department: CategoryDepartment }[]; onClose: () => void }) {
   const router = useRouter()
   const [f, setF] = useState<ProductInput>(product ? fromProduct(product) : blank)
   const [sizes, setSizes] = useState((product ? product.sizes : blank.sizes).join(", "))
@@ -184,7 +184,7 @@ function Form({ product, categories, onClose }: { product: Product | null; categ
     startSave(async () => {
       if (addCat) {
         if (!chosen) return setErr("Type a name for the new category.")
-        const c = await createCategory(chosen)
+        const c = await createCategory(chosen, "", categoryDepartmentFor(f.department))
         if (!c.ok && !/already exists/i.test(c.error)) return setErr(c.error)
       }
       const r = product ? await updateProduct(product.id, payload) : await createProduct(payload)
@@ -226,7 +226,7 @@ function Form({ product, categories, onClose }: { product: Product | null; categ
         <select value={f.department} onChange={(e) => set("department", e.target.value as Department)} className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm">
           {DEPARTMENT_OPTIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
         </select>
-        <span className="text-xs font-normal text-muted-foreground">Which side of the store it appears on. Categories below are shared by both.</span>
+        <span className="text-xs font-normal text-muted-foreground">Which side of the store it appears on. The category list below shows the ones for this department; add new ones under Categories or with “+ New category…”.</span>
       </label>
       <div className="grid grid-cols-2 gap-3">
         <label className={field}>Category
@@ -237,7 +237,7 @@ function Form({ product, categories, onClose }: { product: Product | null; categ
             </div>
           ) : (
             <select value={f.category} onChange={(e) => (e.target.value === "__new" ? setAddCat(true) : set("category", e.target.value))} className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm">
-              {[...new Set([...categories, f.category].filter(Boolean))].map((c) => <option key={c} value={c}>{c}</option>)}
+              {[...new Set([...categories.filter((c) => categoryFits(c.department, f.department)).map((c) => c.name), f.category].filter(Boolean))].map((c) => <option key={c} value={c}>{c}</option>)}
               <option value="__new">+ New category…</option>
             </select>
           )}

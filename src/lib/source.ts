@@ -85,9 +85,9 @@ async function fetchAll<T>(page: (from: number, to: number) => PromiseLike<{ dat
 }
 
 const demoCategories = (products: Product[]): Category[] =>
-  [...new Set(products.map((p) => p.category))].map((name, i) => ({ id: `demo-${i}`, name, description: "", sort: i + 1, active: true }))
+  [...new Set(products.map((p) => p.category))].map((name, i) => ({ id: `demo-${i}`, name, description: "", department: "both" as const, sort: i + 1, active: true }))
 
-const toCategory = (r: any): Category => ({ id: r.id, name: r.name, description: r.description ?? "", sort: r.sort, active: r.active })
+const toCategory = (r: any): Category => ({ id: r.id, name: r.name, description: r.description ?? "", department: r.department === "men" || r.department === "women" ? r.department : "both", sort: r.sort, active: r.active })
 
 /* ---------------- public API ---------------- */
 

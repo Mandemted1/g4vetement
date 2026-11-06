@@ -1,6 +1,6 @@
 /** Shared types + pure helpers. Data itself comes from src/lib/source.ts (server) and the providers. */
 
-import type { Department } from "./departments"
+import type { CategoryDepartment, Department } from "./departments"
 
 export type OrderStatus = "pending" | "processing" | "shipped" | "delivered" | "cancelled" | "refunded"
 export type GarmentType = "tee" | "longsleeve" | "hoodie" | "zip" | "sweat" | "jogger" | "cargo" | "straight" | "wide" | "shorts" | "coach" | "bomber" | "puffer" | "beanie" | "cap" | "tote" | "socks"
@@ -83,6 +83,8 @@ export interface Category {
   id: string
   name: string
   description: string
+  /** which side of the store it belongs to (both = shared) */
+  department: CategoryDepartment
   sort: number
   active: boolean
 }

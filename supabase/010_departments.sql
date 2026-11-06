@@ -7,3 +7,8 @@ alter table products add column if not exists department text not null default '
 alter table products drop constraint if exists products_department_check;
 alter table products add constraint products_department_check check (department in ('men', 'women', 'unisex'));
 create index if not exists products_department_idx on products (department);
+
+-- Categories belong to a department too: 'men', 'women', or 'both' (shared, like Tees). Existing ones are shared.
+alter table categories add column if not exists department text not null default 'both';
+alter table categories drop constraint if exists categories_department_check;
+alter table categories add constraint categories_department_check check (department in ('men', 'women', 'both'));

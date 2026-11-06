@@ -12,7 +12,7 @@ import { ProductThumb } from "@/components/product-thumb"
 import { ProductEditor } from "@/components/products/product-editor"
 import { useAdmin } from "@/components/admin-data"
 import { isBooked, stockState, type Product } from "@/lib/data"
-import { departmentLabel } from "@/lib/departments"
+import { SECTIONS, departmentLabel, inSection, type Section } from "@/lib/departments"
 import { searchProducts } from "@/lib/search"
 import { soldOutSizes } from "@/lib/stock"
 import { int, money } from "@/lib/format"
@@ -22,13 +22,18 @@ export function ProductsView() {
   const { products, orders, categories: managed } = useAdmin()
   const [q, setQ] = useState("")
   const [cat, setCat] = useState("All")
+  const [dept, setDept] = useState<"all" | Section>("all")
   const [editing, setEditing] = useState<Product | null>(null)
   const [creating, setCreating] = useState(false)
 
-  const cats = useMemo(() => {
+  // every category the editor can offer, with its department (ones products use but aren't in the list count as shared)
+  const options = useMemo(() => {
     const names = managed.map((c) => c.name)
-    return ["All", ...names, ...new Set(products.map((p) => p.category).filter((c) => !names.includes(c)))]
+    const orphans = [...new Set(products.map((p) => p.category).filter((c) => !names.includes(c)))]
+    return [...managed.map((c) => ({ name: c.name, department: c.department })), ...orphans.map((name) => ({ name, department: "both" as const }))]
   }, [products, managed])
+  // category tabs follow the department tab: Men shows men's and shared categories, and so on
+  const cats = useMemo(() => ["All", ...options.filter((o) => dept === "all" || o.department === "both" || o.department === dept).map((o) => o.name)], [options, dept])
   const sales = useMemo(() => {
     const m = new Map<string, { units: number; revenue: number }>()
     orders.filter(isBooked).forEach((o) =>
@@ -45,7 +50,7 @@ export function ProductsView() {
   // same matching as the storefront: name, colour, category, product code, description (typos and plurals are fine)
   const matched = q.trim() ? new Set(searchProducts(products, q, { codes: true }).map((p) => p.id)) : null
   const rows = products
-    .filter((p) => (cat === "All" || p.category === cat) && (matched?.has(p.id) ?? true))
+    .filter((p) => (dept === "all" || inSection(p, dept)) && (cat === "All" || p.category === cat) && (matched?.has(p.id) ?? true))
     .sort((a, b) => (sales.get(b.id)?.revenue ?? 0) - (sales.get(a.id)?.revenue ?? 0))
 
   return (
@@ -60,8 +65,14 @@ export function ProductsView() {
       <Card className="rise" style={{ "--i": 1 } as React.CSSProperties}>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="overflow-x-auto">
-              <Tabs value={cat} onValueChange={(v) => setCat(v as string)}>
+            <div className="flex flex-col gap-2 overflow-x-auto">
+              <Tabs value={dept} onValueChange={(v) => { setDept(v as "all" | Section); setCat("All") }}>
+                <TabsList>
+                  <TabsTrigger value="all">All departments</TabsTrigger>
+                  {SECTIONS.map((s) => <TabsTrigger key={s.key} value={s.key}>{s.label}</TabsTrigger>)}
+                </TabsList>
+              </Tabs>
+              <Tabs value={cats.includes(cat) ? cat : "All"} onValueChange={(v) => setCat(v as string)}>
                 <TabsList>{cats.map((c) => <TabsTrigger key={c} value={c}>{c}</TabsTrigger>)}</TabsList>
               </Tabs>
             </div>
@@ -74,6 +85,7 @@ export function ProductsView() {
             <TableHeader>
               <TableRow>
                 <TableHead>Product</TableHead>
+                <TableHead className="hidden sm:table-cell">Department</TableHead>
                 <TableHead className="hidden md:table-cell">Category</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="hidden text-right sm:table-cell">Units sold</TableHead>
@@ -99,7 +111,8 @@ export function ProductsView() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="hidden text-muted-foreground md:table-cell">{departmentLabel(p.department)} · {p.category}</TableCell>
+                    <TableCell className="hidden sm:table-cell"><Badge variant="secondary" className="border-0 bg-muted text-muted-foreground">{departmentLabel(p.department)}</Badge></TableCell>
+                    <TableCell className="hidden text-muted-foreground md:table-cell">{p.category}</TableCell>
                     <TableCell className="text-right tabular">{money(p.price)}</TableCell>
                     <TableCell className="hidden text-right tabular sm:table-cell">{int(s.units)}</TableCell>
                     <TableCell className="hidden text-right font-medium tabular sm:table-cell">{money(s.revenue)}</TableCell>
@@ -123,7 +136,7 @@ export function ProductsView() {
         </CardContent>
       </Card>
 
-      <ProductEditor product={editing} categories={cats.slice(1)} open={!!editing || creating} onClose={() => { setEditing(null); setCreating(false) }} />
+      <ProductEditor product={editing} categories={options} open={!!editing || creating} onClose={() => { setEditing(null); setCreating(false) }} />
     </div>
   )
 }
