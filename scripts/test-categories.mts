@@ -19,6 +19,9 @@ const shopTabs = async () => {
 }
 
 const original = (await db.from("categories").select("id, name, sort, active").order("sort")).data!
+// the storefront only lists categories that have a visible product, so only those are expected there
+const used = new Set(((await db.from("products").select("category").eq("active", true)).data ?? []).map((p) => p.category as string))
+const shown = original.filter((c) => used.has(c.name))
 const p01 = (await db.from("products").select("category").eq("id", "p01").single()).data!.category as string
 const TMP = "ZZ Test Category"
 const TMP2 = "ZZ Renamed"
@@ -50,14 +53,14 @@ try {
 
   // storefront reflects order + visibility
   const base = await shopTabs()
-  ok("storefront shows all 5 categories", original.every((c) => base.includes(c.name)), base.join(" > "))
-  const last = original[original.length - 1]
+  ok("storefront shows every category that has products", shown.every((c) => base.includes(c.name)) && !base.some((n) => !used.has(n)), base.join(" > "))
+  const last = shown[shown.length - 1]
   await db.from("categories").update({ sort: 0 }).eq("id", last.id)
   const reordered = await shopTabs()
   ok("reordering changes the storefront order", reordered[0] === last.name, reordered.join(" > "))
-  await db.from("categories").update({ active: false }).eq("id", original[0].id)
+  await db.from("categories").update({ active: false }).eq("id", shown[0].id)
   const hidden = await shopTabs()
-  ok("hiding a category removes it from the storefront", !hidden.includes(original[0].name), hidden.join(" > "))
+  ok("hiding a category removes it from the storefront", !hidden.includes(shown[0].name), hidden.join(" > "))
 } finally {
   // restore exactly what was there
   await db.from("categories").delete().in("name", [TMP, TMP2])

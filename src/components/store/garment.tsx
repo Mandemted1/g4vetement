@@ -75,6 +75,67 @@ function Shape({ type }: { type: GarmentType }) {
         </>
       )
     }
+    case "tank":
+      return (
+        <>
+          <path d="M88 30 L106 30 Q120 80 134 30 L152 30 L168 96 Q160 120 168 142 L170 250 L70 250 L72 142 Q80 120 72 96 Z" />
+          <path d="M72 238 L170 238" fill="none" />
+        </>
+      )
+    case "crop":
+      return (
+        <>
+          <path d="M80 34 Q120 62 160 34 L214 64 L194 104 L170 92 L170 168 L70 168 L70 92 L46 104 L26 64 Z" />
+          <path d="M92 33 Q120 58 148 33 M70 156 L170 156" fill="none" />
+        </>
+      )
+    case "shirt":
+      return (
+        <>
+          <path d="M80 34 Q120 62 160 34 L206 56 L228 232 L200 238 L172 108 L170 250 L70 250 L68 108 L40 238 L12 232 L34 56 Z" />
+          <path d="M92 32 L120 66 L148 32 L160 44 L120 78 L80 44 Z" />
+          <path d="M120 78 L120 250 M16 214 L38 220 M224 214 L202 220" fill="none" />
+          <path d="M120 110 h0.1 M120 148 h0.1 M120 186 h0.1 M120 224 h0.1" fill="none" strokeWidth={4} />
+        </>
+      )
+    case "dress":
+      return (
+        <>
+          <path d="M96 26 L110 26 Q120 54 130 26 L144 26 L156 88 L148 118 L198 262 L42 262 L92 118 L84 88 Z" />
+          <path d="M92 118 L148 118 M120 118 L120 262" fill="none" opacity="0.5" />
+        </>
+      )
+    case "skirt":
+      return (
+        <>
+          <path d="M82 44 L158 44 L198 250 L42 250 Z" />
+          <path d="M82 44 L158 44 L160 64 L80 64 Z" />
+          <path d="M104 64 L88 250 M120 64 L120 250 M136 64 L152 250" fill="none" opacity="0.5" />
+        </>
+      )
+    case "leggings":
+      return (
+        <>
+          <path d="M82 26 L158 26 L164 130 L150 254 L126 254 L120 104 L114 254 L90 254 L76 130 Z" />
+          <path d="M80 44 L160 44" fill="none" />
+        </>
+      )
+    case "blazer":
+      return (
+        <>
+          <path d="M84 36 Q120 56 156 36 L206 58 L228 238 L198 244 L172 116 L170 252 L70 252 L68 116 L42 244 L12 238 L34 58 Z" />
+          <path d="M84 36 L120 130 L156 36 L170 48 L132 150 L120 130 L108 150 L70 48 Z" />
+          <path d="M120 130 L120 252 M126 168 h0.1 M126 204 h0.1" fill="none" strokeWidth={4} />
+        </>
+      )
+    case "other":
+      return (
+        <>
+          <path d="M120 70 L120 54 Q120 40 134 40" fill="none" />
+          <path d="M120 70 L36 130 L204 130 Z" />
+          <path d="M56 150 L184 150 L196 248 L44 248 Z" />
+        </>
+      )
     case "beanie":
       return (
         <>

@@ -20,6 +20,8 @@ const TYPES: { value: GarmentType; label: string }[] = [
   { value: "sweat", label: "Sweatshirt" }, { value: "jogger", label: "Joggers" }, { value: "cargo", label: "Cargo pants" }, { value: "straight", label: "Jeans / straight pants" },
   { value: "wide", label: "Wide trousers" }, { value: "shorts", label: "Shorts" }, { value: "coach", label: "Coach jacket" }, { value: "bomber", label: "Bomber" },
   { value: "puffer", label: "Puffer" }, { value: "beanie", label: "Beanie" }, { value: "cap", label: "Cap" }, { value: "tote", label: "Tote" }, { value: "socks", label: "Socks" },
+  { value: "tank", label: "Tank top" }, { value: "crop", label: "Crop top" }, { value: "shirt", label: "Shirt (buttoned)" }, { value: "dress", label: "Dress" }, { value: "skirt", label: "Skirt" },
+  { value: "leggings", label: "Leggings" }, { value: "blazer", label: "Blazer" }, { value: "other", label: "Other / not listed" },
 ]
 
 const blank: ProductInput = {
@@ -242,7 +244,7 @@ function Form({ product, categories, onClose }: { product: Product | null; categ
             </select>
           )}
         </label>
-        <label className={field}>Shape (for placeholder)
+        <label className={field}>Shape (shown until you add photos)
           <select value={f.type} onChange={(e) => set("type", e.target.value as GarmentType)} className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm">
             {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>

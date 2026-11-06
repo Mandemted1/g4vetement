@@ -3,7 +3,7 @@
 import type { CategoryDepartment, Department } from "./departments"
 
 export type OrderStatus = "pending" | "processing" | "shipped" | "delivered" | "cancelled" | "refunded"
-export type GarmentType = "tee" | "longsleeve" | "hoodie" | "zip" | "sweat" | "jogger" | "cargo" | "straight" | "wide" | "shorts" | "coach" | "bomber" | "puffer" | "beanie" | "cap" | "tote" | "socks"
+export type GarmentType = "tee" | "longsleeve" | "hoodie" | "zip" | "sweat" | "jogger" | "cargo" | "straight" | "wide" | "shorts" | "coach" | "bomber" | "puffer" | "beanie" | "cap" | "tote" | "socks" | "tank" | "crop" | "shirt" | "dress" | "skirt" | "leggings" | "blazer" | "other"
 
 export interface Product {
   id: string
