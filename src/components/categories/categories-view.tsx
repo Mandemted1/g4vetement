@@ -76,7 +76,7 @@ export function CategoriesView() {
       <Card className="rise" style={{ "--i": 2 } as React.CSSProperties}>
         <CardHeader>
           <CardTitle>Your categories</CardTitle>
-          <CardDescription>Use the arrows to set the order shown in the store menu and filters. A hidden category no longer shows as a filter or in the menu; its products stay visible under "All" (hide a product itself from its page).</CardDescription>
+          <CardDescription>Use the arrows to set the order shown in the store menu and filters. A hidden category no longer shows as a filter or in the menu; its products stay visible under &ldquo;All&rdquo; (hide a product itself from its page).</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <form
