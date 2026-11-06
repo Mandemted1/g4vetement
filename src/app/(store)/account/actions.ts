@@ -37,6 +37,30 @@ export async function signUpCustomer(input: { name: string; email: string; passw
   return data.session ? { ok: true } : { ok: true, confirm: true }
 }
 
+/** Emails a reset link. Always says OK, so nobody can use this to find out which emails have accounts. */
+export async function requestPasswordReset(emailIn: string): Promise<Result> {
+  if (!isLive) return DEMO
+  const email = emailIn.trim().toLowerCase()
+  if (!EMAIL.test(email)) return { ok: false, error: "Enter a valid email address." }
+  const { error } = await (await sessionClient()).auth.resetPasswordForEmail(email, { redirectTo: `${storeUrl()}/account/callback?next=/account/reset` })
+  if (error && /rate limit|too many/i.test(error.message)) return { ok: false, error: friendly(error.message) }
+  return { ok: true }
+}
+
+/** Sets a new password for the person who opened a reset link (they have a session from it). */
+export async function setNewPassword(password: string): Promise<Result> {
+  if (!isLive) return DEMO
+  if (password.length < 8) return { ok: false, error: "Your password needs at least 8 characters." }
+  if (password.length > 72) return { ok: false, error: "That password is too long (72 characters max)." }
+  const db = await sessionClient()
+  const { data } = await db.auth.getUser()
+  if (!data.user) return { ok: false, error: "This link has expired. Request a new one from the sign in page." }
+  const { error } = await db.auth.updateUser({ password })
+  if (error) return { ok: false, error: friendly(error.message) }
+  revalidatePath("/", "layout")
+  return { ok: true }
+}
+
 export async function signInCustomer(input: { email: string; password: string }): Promise<Result> {
   if (!isLive) return DEMO
   const { error } = await (await sessionClient()).auth.signInWithPassword({ email: input.email.trim().toLowerCase(), password: input.password })

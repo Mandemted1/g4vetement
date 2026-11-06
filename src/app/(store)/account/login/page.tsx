@@ -11,8 +11,8 @@ export const metadata: Metadata = { title: "Sign in" }
 /** Only paths on this site (never a full URL), so a crafted link can't send someone elsewhere after signing in. */
 const safeNext = (n: string | undefined) => (n && n.startsWith("/") && !n.startsWith("//") && !n.includes("\\") ? n : "/account")
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; confirm?: string }> }) {
-  const { next, confirm } = await searchParams
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; confirm?: string; reset?: string }> }) {
+  const { next, confirm, reset } = await searchParams
   if (isLive && (await getAccount())) redirect(safeNext(next))
 
   return (
@@ -22,7 +22,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <Rise as="h1" text="Sign in" className="text-[clamp(3rem,10vw,9rem)] font-medium leading-[0.85] tracking-[-0.06em]" />
       <div className="mt-14">
         {isLive ? (
-          <AuthForm next={safeNext(next)} notice={confirm === "failed" ? "That confirmation link didn't work or has expired. Try signing in, or create the account again." : ""} />
+          <AuthForm next={safeNext(next)} notice={confirm === "failed" ? "That confirmation link didn't work or has expired. Try signing in, or create the account again." : reset === "failed" ? "That reset link didn't work or has expired. Choose Forgot your password to get a new one." : ""} />
         ) : (
           <p className="max-w-md text-[15px] leading-relaxed text-[var(--mute)]">Accounts aren&apos;t available until the store is connected to its database.</p>
         )}

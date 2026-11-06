@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { signInCustomer, signUpCustomer } from "@/app/(store)/account/actions"
+import { requestPasswordReset, signInCustomer, signUpCustomer } from "@/app/(store)/account/actions"
 import { cn } from "@/lib/utils"
 
 const input = "w-full border-b bg-transparent py-3 text-[15px] outline-none transition-colors placeholder:text-[var(--mute)] focus:border-[var(--ink)]"
@@ -10,7 +10,8 @@ const input = "w-full border-b bg-transparent py-3 text-[15px] outline-none tran
 /** Sign in / create account, in the store's style. `next` is where to go afterwards (a path on this site). */
 export function AuthForm({ next = "/account", notice = "" }: { next?: string; notice?: string }) {
   const router = useRouter()
-  const [mode, setMode] = useState<"in" | "up">("in")
+  const [mode, setMode] = useState<"in" | "up" | "reset">("in")
+  const [resetSent, setResetSent] = useState(false)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -23,6 +24,11 @@ export function AuthForm({ next = "/account", notice = "" }: { next?: string; no
     e.preventDefault()
     setError("")
     start(async () => {
+      if (mode === "reset") {
+        const r = await requestPasswordReset(email)
+        if (!r.ok) return setError(r.error)
+        return setResetSent(true)
+      }
       const r = mode === "in" ? await signInCustomer({ email, password }) : await signUpCustomer({ name, email, password })
       if (!r.ok) return setError(r.error)
       if (r.confirm) return setSent(true)
@@ -43,6 +49,18 @@ export function AuthForm({ next = "/account", notice = "" }: { next?: string; no
     )
   }
 
+  if (resetSent) {
+    return (
+      <div role="status" className="max-w-md">
+        <p className="text-2xl font-medium leading-tight tracking-tight">Check your email.</p>
+        <p className="mt-4 text-[15px] leading-relaxed text-[var(--mute)]">
+          If there&apos;s an account for <b className="font-medium text-[var(--ink)]">{email}</b>, we&apos;ve sent a link to choose a new password. Open it in this same browser.
+        </p>
+        <button onClick={() => { setResetSent(false); setMode("in") }} className="label mt-8"><span className="u">Back to sign in</span></button>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-md">
       <div className="label flex gap-6" role="tablist" aria-label="Account">
@@ -58,7 +76,7 @@ export function AuthForm({ next = "/account", notice = "" }: { next?: string; no
       <form onSubmit={submit} className="mt-8 space-y-1">
         {mode === "up" && <input className={input} required placeholder="Full name" autoComplete="name" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />}
         <input className={input} required type="email" placeholder="Email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <div className="relative">
+        {mode !== "reset" && <div className="relative">
           <input
             className={cn(input, "pr-16")}
             required
@@ -71,18 +89,20 @@ export function AuthForm({ next = "/account", notice = "" }: { next?: string; no
             onChange={(e) => setPassword(e.target.value)}
           />
           <button type="button" onClick={() => setShow((v) => !v)} aria-pressed={show} className="label absolute right-0 top-1/2 -translate-y-1/2 py-2 pl-3"><span className="u">{show ? "Hide" : "Show"}</span></button>
-        </div>
+        </div>}
+        {mode === "in" && <div className="pt-3"><button type="button" onClick={() => { setMode("reset"); setError("") }} className="label text-[var(--mute)] transition-colors hover:text-[var(--ink)]"><span className="u">Forgot your password?</span></button></div>}
+        {mode === "reset" && <p className="label !mt-5 leading-relaxed text-[var(--mute)]">Enter your email and we&apos;ll send you a link to choose a new password.</p>}
 
         {error && <p role="alert" className="label !mt-5 leading-relaxed text-[#b3261e]">{error}</p>}
 
-        <button type="submit" disabled={pending} data-cursor={mode === "in" ? "SIGN IN" : "JOIN"} className="label group relative !mt-8 w-full overflow-hidden bg-[var(--ink)] py-5 text-[var(--paper)] disabled:opacity-60">
+        <button type="submit" disabled={pending} data-cursor={mode === "in" ? "SIGN IN" : mode === "reset" ? "SEND" : "JOIN"} className="label group relative !mt-8 w-full overflow-hidden bg-[var(--ink)] py-5 text-[var(--paper)] disabled:opacity-60">
           <span className="absolute inset-0 origin-bottom scale-y-0 bg-[var(--paper)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-y-100" />
-          <span className="relative mix-blend-difference">{pending ? "One moment…" : mode === "in" ? "Sign in" : "Create account"}</span>
+          <span className="relative mix-blend-difference">{pending ? "One moment…" : mode === "in" ? "Sign in" : mode === "reset" ? "Send reset link" : "Create account"}</span>
         </button>
       </form>
 
       <p className="label mt-6 leading-relaxed text-[var(--mute)]">
-        {mode === "in" ? "No account? You can still check out as a guest. An account keeps your orders and address in one place." : "Orders you place while signed in show up in your account."}
+        {mode === "in" ? "No account? You can still check out as a guest. An account keeps your orders and address in one place." : mode === "up" ? "Orders you place while signed in show up in your account." : <button type="button" onClick={() => setMode("in")}><span className="u">Back to sign in</span></button>}
       </p>
     </div>
   )

@@ -90,7 +90,7 @@ export function OrdersView() {
           {canPrint && picked.size > 0 && (
             <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/40 px-3 py-2 text-sm" role="status">
               <span>{picked.size} order{picked.size === 1 ? "" : "s"} selected</span>
-              <Button size="sm" render={<a href={printHref} target="_blank" rel="noopener noreferrer" />}>Print packing slips</Button>
+              <Button size="sm" nativeButton={false} render={<a href={printHref} target="_blank" rel="noopener noreferrer" />}>Print packing slips</Button>
               <Button size="sm" variant="ghost" onClick={() => setPicked(new Set())}>Clear</Button>
             </div>
           )}
@@ -183,7 +183,7 @@ function OrderDetail({ o }: { o: Order }) {
         <SheetDescription>{dateLabel(o.date)} at {timeLabel(o.date)} · {o.channel}</SheetDescription>
       </SheetHeader>
       <div className="flex items-center justify-between"><StatusBadge status={o.status} /><span className="text-xl font-semibold tabular">{money(o.total)}</span></div>
-      {canManage && <Button variant="outline" render={<a href={`/admin/packing-slips?ids=${encodeURIComponent(o.id)}`} target="_blank" rel="noopener noreferrer" />}>Print packing slip</Button>}
+      {canManage && <Button variant="outline" nativeButton={false} render={<a href={`/admin/packing-slips?ids=${encodeURIComponent(o.id)}`} target="_blank" rel="noopener noreferrer" />}>Print packing slip</Button>}
       {!terminal && canManage && (
         <div className="flex flex-col gap-2">
           {o.status === "processing" && tracking !== "ship" && <Button disabled={busy} onClick={() => { setErr(""); setTracking("ship") }}>Mark as shipped…</Button>}

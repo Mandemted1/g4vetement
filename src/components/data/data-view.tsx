@@ -14,7 +14,7 @@ const STATUS = ["all", "pending", "processing", "shipped", "delivered", "cancell
 
 function Download({ href, children, variant = "outline" }: { href: string; children: React.ReactNode; variant?: "outline" | "default" }) {
   return (
-    <Button render={<a href={href} download />} variant={variant}>
+    <Button nativeButton={false} render={<a href={href} download />} variant={variant}>
       <DownloadIcon /> {children}
     </Button>
   )
