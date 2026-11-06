@@ -30,12 +30,12 @@ export function LoginForm({ tone = "light", tagline }: { tone?: "light" | "dark"
 
   const input = cn(
     "w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition-colors",
-    dark ? "border-white/20 bg-white/10 text-white placeholder:text-white/45 focus:border-white/60 focus:bg-white/15" : "border-input bg-transparent focus:border-ring focus:ring-3 focus:ring-ring/50",
+    dark ? "liquid-input text-white placeholder:text-white/45" : "border-input bg-transparent focus:border-ring focus:ring-3 focus:ring-ring/50",
   )
 
   return (
     <div className={dark ? "text-white" : "text-foreground"}>
-      <div className={cn("mb-5 flex size-10 items-center justify-center rounded-xl text-sm font-bold tracking-tight", dark ? "bg-white text-black" : "bg-primary text-primary-foreground")}>G4</div>
+      <div className={cn("mb-5 flex size-10 items-center justify-center rounded-xl text-sm font-bold tracking-tight", dark ? "bg-white/90 text-black shadow-[inset_0_1px_0_#fff,0_6px_16px_-4px_rgba(0,0,0,0.5)]" : "bg-primary text-primary-foreground")}>G4</div>
       <h1 className="text-xl font-semibold tracking-tight">G4 Admin</h1>
       <p className={cn("mt-1.5 text-sm", dark ? "text-white/65" : "text-muted-foreground")}>{tagline}</p>
       <form onSubmit={submit} className="mt-6 flex flex-col gap-3.5">
@@ -51,7 +51,7 @@ export function LoginForm({ tone = "light", tagline }: { tone?: "light" | "dark"
         <button
           type="submit"
           disabled={busy}
-          className={cn("mt-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all disabled:opacity-60", dark ? "bg-white text-black hover:bg-white/90" : "bg-primary text-primary-foreground hover:bg-primary/90")}
+          className={cn("mt-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all disabled:opacity-60", dark ? "liquid-button text-black" : "bg-primary text-primary-foreground hover:bg-primary/90")}
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>

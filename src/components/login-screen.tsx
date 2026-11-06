@@ -1,6 +1,7 @@
 "use client"
 
-import { motion } from "motion/react"
+import { useRef } from "react"
+import { motion, useMotionValue, useSpring } from "motion/react"
 import { LoginForm } from "@/components/login-form"
 import { SmartImage } from "@/components/smart-image"
 import type { LoginSettings } from "@/lib/settings-types"
@@ -29,14 +30,9 @@ export function LoginScreen({ settings, contained = false }: { settings: LoginSe
       <div className="absolute inset-0" style={shade} />
       <span className="absolute left-6 top-6 text-3xl font-semibold leading-none tracking-[-0.07em] text-white md:left-10 md:top-9">G4</span>
       <div className="relative flex h-full items-end justify-center p-4 pb-8 md:items-center md:pb-4">
-        <motion.div
-          className="w-full max-w-sm rounded-2xl border border-white/15 bg-black/35 p-7 shadow-2xl backdrop-blur-xl"
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
-        >
+        <GlassCard>
           <LoginForm tone="dark" tagline={tagline} />
-        </motion.div>
+        </GlassCard>
       </div>
     </div>
   )
@@ -61,4 +57,44 @@ export function LoginScreen({ settings, contained = false }: { settings: LoginSe
     )
   }
   return full()
+}
+
+/** The liquid-glass card: frosted blur, bright rim, a highlight that follows the cursor and a soft 3D tilt. */
+function GlassCard({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const rx = useSpring(useMotionValue(0), { stiffness: 140, damping: 16 })
+  const ry = useSpring(useMotionValue(0), { stiffness: 140, damping: 16 })
+  const move = (e: React.PointerEvent) => {
+    const el = ref.current
+    if (!el || e.pointerType !== "mouse") return
+    const r = el.getBoundingClientRect()
+    const x = (e.clientX - r.left) / r.width
+    const y = (e.clientY - r.top) / r.height
+    el.style.setProperty("--mx", `${x * 100}%`)
+    el.style.setProperty("--my", `${y * 100}%`)
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      ry.set((x - 0.5) * 7)
+      rx.set((0.5 - y) * 7)
+    }
+  }
+  const leave = () => {
+    rx.set(0)
+    ry.set(0)
+    ref.current?.style.setProperty("--mx", "28%")
+    ref.current?.style.setProperty("--my", "0%")
+  }
+  return (
+    <motion.div
+      ref={ref}
+      onPointerMove={move}
+      onPointerLeave={leave}
+      className="liquid-glass w-full max-w-sm p-7"
+      style={{ rotateX: rx, rotateY: ry, transformPerspective: 900 }}
+      initial={{ opacity: 0, y: 28, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 1, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+    >
+      {children}
+    </motion.div>
+  )
 }
