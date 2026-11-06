@@ -13,7 +13,8 @@
     "db:check": "tsx --env-file=.env.local scripts/db-check.mts",
     "remove-order": "tsx --env-file=.env.local scripts/remove-order.mts",
     "migrate": "tsx --env-file=.env.local scripts/migrate.mts",
-    "seed-analytics": "tsx --env-file=.env.local scripts/seed-analytics.mts"
+    "seed-analytics": "tsx --env-file=.env.local scripts/seed-analytics.mts",
+    "test-email": "tsx --conditions=react-server --env-file=.env.local scripts/send-test-email.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
