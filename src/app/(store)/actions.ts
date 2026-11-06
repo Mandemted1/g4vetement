@@ -6,7 +6,7 @@ import { sendOrderEmail, sendWelcomeEmail } from "@/lib/email/service"
 import { getCatalog } from "@/lib/source"
 import { DEFAULT_ZONE, quoteShipping } from "@/lib/shipping"
 import { WELCOME_CODE, WELCOME_MIN, WELCOME_OFF, sizeLeft } from "@/lib/store"
-import { anonClient } from "@/lib/supabase/clients"
+import { anonClient, sessionClient } from "@/lib/supabase/clients"
 import { isLive } from "@/lib/supabase/env"
 
 export interface BagLine {
@@ -124,7 +124,10 @@ export async function placeOrder(input: CheckoutInput): Promise<CheckoutResult> 
   const code = input.code?.trim().toUpperCase() || null
 
   if (isLive) {
-    const { data, error } = await anonClient().rpc("place_order", {
+    // signed in: place the order as that customer (it then shows in their account); otherwise as a guest
+    const session = await sessionClient()
+    const db = (await session.auth.getUser()).data.user ? session : anonClient()
+    const { data, error } = await db.rpc("place_order", {
       p_name: input.name,
       p_email: input.email,
       p_city: input.city || null,

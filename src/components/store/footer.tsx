@@ -7,7 +7,7 @@ import { useCatalog } from "./catalog"
 import { Reveal } from "./fx"
 
 export function StoreFooter() {
-  const { categories, sections, store, policyLinks } = useCatalog()
+  const { categories, sections, store, policyLinks, account } = useCatalog()
   const [email, setEmail] = useState("")
   const [sent, setSent] = useState(false)
   const [error, setError] = useState("")
@@ -49,6 +49,7 @@ export function StoreFooter() {
         <Reveal delay={0.2} className="md:col-span-2">
           <p className="label text-[var(--mute)]">Help</p>
           <ul className="label mt-4 space-y-2.5">
+            <li><Link href="/account" className="u">{account ? "Account" : "Sign in"}</Link></li>
             {policyLinks.map((l) => (
               <li key={l.slug}><Link href={`/policies/${l.slug}`} className="u">{l.title}</Link></li>
             ))}

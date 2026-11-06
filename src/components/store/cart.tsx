@@ -7,6 +7,7 @@ import { onSale, price, sizeLeft, unitPrice } from "@/lib/store"
 import { guessCountry } from "@/lib/countries"
 import { quoteShipping, shippableCountries } from "@/lib/shipping"
 import { placeOrder, quoteOrder, type QuoteResult } from "@/app/(store)/actions"
+import { saveAddress } from "@/app/(store)/account/actions"
 import { cn } from "@/lib/utils"
 import { useCatalog } from "./catalog"
 import { OrderSuccess, type SuccessData } from "./order-success"
@@ -157,9 +158,12 @@ function FlightLayer({ flights, done }: { flights: Flight[]; done: (id: number) 
 
 function CartDrawer() {
   const { lines, open, setOpen, setQty, clear, count, showSuccess } = useCart()
-  const { shopById, shipping } = useCatalog()
+  const { shopById, shipping, account } = useCatalog()
   const [step, setStep] = useState<"bag" | "details">("bag")
-  const [form, setForm] = useState({ name: "", email: "", address: "", city: "", state: "", postcode: "" })
+  // signed in: start from the saved name, email and address
+  const blankForm = () => ({ name: account?.name ?? "", email: account?.email ?? "", address: account?.address?.address ?? "", city: account?.address?.city ?? "", state: account?.address?.state ?? "", postcode: account?.address?.postcode ?? "" })
+  const [form, setForm] = useState(blankForm)
+  const [saveAddr, setSaveAddr] = useState(true)
   // where the order is going: remembered between visits, guessed from the browser language the first time
   const countries = useMemo(() => shippableCountries(shipping), [shipping])
   const [country, setCountry] = useState("")
@@ -170,9 +174,10 @@ function CartDrawer() {
       saved = localStorage.getItem("g4-country") ?? ""
     } catch {}
     const guess = guessCountry(typeof navigator === "undefined" ? [] : navigator.languages ?? [])
+    const mine = account?.address?.country ?? ""
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCountry((cur) => (cur && codes.has(cur) ? cur : codes.has(saved) ? saved : guess && codes.has(guess) ? guess : (countries[0]?.code ?? "")))
-  }, [countries])
+    setCountry((cur) => (cur && codes.has(cur) ? cur : codes.has(mine) ? mine : codes.has(saved) ? saved : guess && codes.has(guess) ? guess : (countries[0]?.code ?? "")))
+  }, [countries, account])
   const pickCountry = (c: string) => {
     setCountry(c)
     try {
@@ -272,6 +277,8 @@ function CartDrawer() {
       localStorage.removeItem("g4-code")
     } catch {}
     track("purchase")
+    // keep the address for next time (best effort: never blocks the order)
+    if (account && saveAddr) void saveAddress({ address: form.address, city: form.city, state: form.state, postcode: form.postcode, country, name: form.name })
     showSuccess({
       orderId: r.orderId,
       total: r.total,
@@ -291,7 +298,7 @@ function CartDrawer() {
     setOpen(false)
     window.setTimeout(() => {
       setStep("bag")
-      setForm({ name: "", email: "", address: "", city: "", state: "", postcode: "" })
+      setForm(blankForm())
       setApplied("")
       setTyped("")
     }, 600)
@@ -403,7 +410,7 @@ function CartDrawer() {
                   </div>
                 ) : (
                   <form id="checkout" onSubmit={submit} data-lenis-prevent className="flex-1 space-y-1 overflow-y-auto p-5">
-                    <p className="label mb-3 text-[var(--mute)]">Your details</p>
+                    <p className="label mb-3 text-[var(--mute)]">{account ? `Signed in as ${account.email}` : "Your details"}</p>
                     <input className={input} required placeholder="Full name" autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                     <input className={input} required type="email" placeholder="Email" autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
                     <p className="label !mt-7 mb-1 text-[var(--mute)]">Delivery address</p>
@@ -418,6 +425,12 @@ function CartDrawer() {
                         {countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
                       </select>
                     </div>
+                    {account && (
+                      <label className="label !mt-6 flex cursor-pointer items-center gap-3">
+                        <input type="checkbox" checked={saveAddr} onChange={(e) => setSaveAddr(e.target.checked)} className="size-4 accent-[var(--ink)]" />
+                        Save this address to my account
+                      </label>
+                    )}
                     {applied && (
                       <p className={cn("label !mt-6 leading-relaxed", q?.codeError ? "text-[#b3261e]" : "")}>
                         {q?.codeError ? `${applied}: ${q.codeError}` : q?.code ? `${applied} applied` : `${applied}…`}

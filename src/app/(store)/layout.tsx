@@ -9,6 +9,7 @@ import { WelcomePopup } from "@/components/store/welcome-popup"
 import { getCatalog, getCategoryNames } from "@/lib/source"
 import { getWelcomeOffer } from "@/lib/offers"
 import { getPolicies, getStoreSettings } from "@/lib/settings"
+import { getAccount } from "@/lib/account"
 import { getShippingZones } from "@/lib/shipping-source"
 import { POLICY_META } from "@/lib/settings-types"
 
@@ -23,11 +24,11 @@ export const metadata: Metadata = {
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
   const products = await getCatalog()
   const categoryNames = await getCategoryNames(products)
-  const [store, policies, welcome, shipping] = await Promise.all([getStoreSettings(), getPolicies(), getWelcomeOffer(), getShippingZones()])
+  const [store, policies, welcome, shipping, account] = await Promise.all([getStoreSettings(), getPolicies(), getWelcomeOffer(), getShippingZones(), getAccount()])
   const policyLinks = POLICY_META.filter((m) => policies[m.slug].trim()).map((m) => ({ slug: m.slug, title: m.title }))
   return (
     <div className="store min-h-dvh">
-      <CatalogProvider products={products} categoryNames={categoryNames} store={store} welcome={welcome} policyLinks={policyLinks} shipping={shipping}>
+      <CatalogProvider products={products} categoryNames={categoryNames} store={store} welcome={welcome} policyLinks={policyLinks} shipping={shipping} account={account}>
       <CartProvider>
         <Preloader />
         <SmoothScroll />

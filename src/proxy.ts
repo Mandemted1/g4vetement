@@ -2,15 +2,16 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 /**
- * Keeps the Supabase session fresh and gates /admin behind a login.
+ * Keeps the Supabase session fresh (admin and customer) and gates /admin behind an admin login.
  * When Supabase isn't configured (demo mode) it lets everything through.
  */
 export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const { pathname } = request.nextUrl
+  const isAdminPath = pathname === "/admin" || pathname.startsWith("/admin/")
   if (!url || !anon) {
-    const { pathname } = request.nextUrl
-    if (process.env.VERCEL_ENV === "production" && pathname !== "/admin/login") return NextResponse.redirect(new URL("/admin/login", request.url))
+    if (isAdminPath && process.env.VERCEL_ENV === "production" && pathname !== "/admin/login") return NextResponse.redirect(new URL("/admin/login", request.url))
     return NextResponse.next()
   }
 
@@ -26,7 +27,8 @@ export async function proxy(request: NextRequest) {
     },
   })
   const { data } = await supabase.auth.getUser()
-  const { pathname } = request.nextUrl
+  // customers' sessions are refreshed here too (the storefront reads them on the server); only /admin is gated
+  if (!isAdminPath) return response
   const onLogin = pathname === "/admin/login"
 
   if (!data.user) return onLogin ? response : NextResponse.redirect(new URL("/admin/login", request.url))
@@ -37,4 +39,5 @@ export async function proxy(request: NextRequest) {
   return response
 }
 
-export const config = { matcher: ["/admin/:path*"] }
+// every page except static files and API routes
+export const config = { matcher: ["/((?!_next/|api/|.*\\.[a-zA-Z0-9]+$).*)"] }
