@@ -4,11 +4,14 @@ import Link from "next/link"
 import { isSoldOut, onSale, pad, sizeLeft, type ShopProduct } from "@/lib/store"
 import { PriceTag } from "./price-tag"
 import { useCart } from "./cart"
+import { useCatalog } from "./catalog"
 import { ProductMedia } from "./product-media"
 import { cn } from "@/lib/utils"
 
 export function ProductCard({ product: p, className, ratio = "aspect-[4/5]", priority, showIndex = true }: { product: ShopProduct; className?: string; ratio?: string; priority?: boolean; showIndex?: boolean }) {
   const { add, setOpen } = useCart()
+  const { ratings } = useCatalog()
+  const rating = ratings[p.id]
   const sold = isSoldOut(p)
   const hasSecond = p.images.length > 1
   const low = !sold && p.stock <= p.reorderLevel
@@ -32,7 +35,10 @@ export function ProductCard({ product: p, className, ratio = "aspect-[4/5]", pri
           <span className="text-[13px] leading-tight">{p.name}</span>
           <PriceTag p={p} className="label shrink-0" />
         </div>
-        <p className="label mt-1 text-[var(--mute)]">{p.colors.length} {p.colors.length === 1 ? "colour" : "colours"}</p>
+        <p className="label mt-1 text-[var(--mute)]">
+          {p.colors.length} {p.colors.length === 1 ? "colour" : "colours"}
+          {rating && <span> · ★ {rating.average.toFixed(1)} <span className="opacity-70">({rating.total})</span></span>}
+        </p>
       </Link>
 
       {!sold && (

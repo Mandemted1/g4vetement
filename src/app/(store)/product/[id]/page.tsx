@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { ProductView } from "@/components/store/product-view"
+import { getProductReviews, getReviewAccess } from "@/lib/reviews"
 import { getCatalog } from "@/lib/source"
 import { sortedForGrid, toShop } from "@/lib/store"
 
@@ -18,5 +19,6 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const same = sortedForGrid(shop.filter((p) => p.category === product.category && p.id !== product.id))
   const others = sortedForGrid(shop.filter((p) => p.category !== product.category && p.id !== product.id))
   const related = [...same, ...others].slice(0, 4)
-  return <ProductView key={product.id} product={product} related={related} />
+  const [reviews, access] = await Promise.all([getProductReviews(product.id), getReviewAccess(product.id)])
+  return <ProductView key={product.id} product={product} related={related} reviews={reviews} access={access} />
 }

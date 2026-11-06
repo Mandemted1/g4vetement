@@ -32,7 +32,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
 
       <div className="mt-14 grid gap-14 md:grid-cols-12 md:gap-8">
         <section className="md:col-span-7" aria-label="Items">
-          <OrderLines order={o} />
+          <OrderLines order={o} canReview={o.status === "shipped" || o.status === "delivered"} />
           <dl className="label mt-5 space-y-2">
             <div className="flex justify-between"><dt>Subtotal</dt><dd>{price(o.subtotal + (o.saleDiscount ?? 0))}</dd></div>
             {(o.saleDiscount ?? 0) > 0 && <div className="flex justify-between"><dt>Sale</dt><dd>−{price(o.saleDiscount ?? 0)}</dd></div>}

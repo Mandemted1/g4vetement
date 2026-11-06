@@ -29,7 +29,8 @@
     "test-shipping-db": "tsx --env-file=.env.local scripts/test-shipping-db.mts",
     "test-shipping-email": "tsx scripts/test-shipping-email.mts",
     "make-admin": "tsx --env-file=.env.local scripts/make-admin.mts",
-    "test-security-db": "tsx --env-file=.env.local scripts/test-security-db.mts"
+    "test-security-db": "tsx --env-file=.env.local scripts/test-security-db.mts",
+    "test-reviews-db": "tsx --env-file=.env.local scripts/test-reviews-db.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

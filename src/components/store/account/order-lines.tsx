@@ -7,7 +7,7 @@ import { useCatalog } from "../catalog"
 import { ProductMedia } from "../product-media"
 
 /** An order's items with their photos (looked up from the live catalog; items for products since removed still show their name). */
-export function OrderLines({ order }: { order: Order }) {
+export function OrderLines({ order, canReview = false }: { order: Order; canReview?: boolean }) {
   const { shopById } = useCatalog()
   return (
     <ul className="divide-y border-y">
@@ -19,6 +19,7 @@ export function OrderLines({ order }: { order: Order }) {
             <div className="min-w-0 flex-1">
               {p ? <Link href={p.href} className="u block truncate text-[13px]">{i.name}</Link> : <p className="truncate text-[13px]">{i.name}</p>}
               <p className="label mt-1 text-[var(--mute)]">{i.color} / {i.size} / Qty {i.qty}</p>
+              {canReview && p && <Link href={`${p.href}#reviews`} data-cursor="REVIEW" className="label mt-2 inline-block"><span className="u">Write a review</span></Link>}
             </div>
             <span className="label">{price(i.price * i.qty)}</span>
           </li>

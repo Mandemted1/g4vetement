@@ -5,7 +5,10 @@ import { track } from "@/lib/track"
 import { AnimatePresence, motion, useAnimationControls } from "motion/react"
 import { isSoldOut, onSale, pad, price, sizeLeft, unitPrice, type ShopProduct } from "@/lib/store"
 import { shippingSummary } from "@/lib/shipping"
+import type { Review, ReviewAccess } from "@/lib/review-types"
 import { BackLink } from "./back-link"
+import { ReviewsSection } from "./reviews-section"
+import { Stars } from "./stars"
 import { PriceTag } from "./price-tag"
 import { useCart } from "./cart"
 import { useCatalog } from "./catalog"
@@ -13,9 +16,10 @@ import { Magnetic, Rise } from "./fx"
 import { ProductMedia } from "./product-media"
 import { ProductCard } from "./product-card"
 
-export function ProductView({ product: p, related }: { product: ShopProduct; related: ShopProduct[] }) {
+export function ProductView({ product: p, related, reviews, access }: { product: ShopProduct; related: ShopProduct[]; reviews: Review[]; access: ReviewAccess }) {
   const { add, setOpen } = useCart()
-  const { shipping } = useCatalog()
+  const { shipping, ratings } = useCatalog()
+  const rating = ratings[p.id] ?? null
   const [color, setColor] = useState(p.colors[0])
   const [size, setSize] = useState<string | null>(p.sizes.length === 1 ? p.sizes[0] : null)
   const [added, setAdded] = useState(false)
@@ -68,6 +72,12 @@ export function ProductView({ product: p, related }: { product: ShopProduct; rel
               <PriceTag p={p} strikeClassName="font-normal" />
               {onSale(p) && <span className="label font-normal">−{p.salePercent}%{p.saleName ? ` · ${p.saleName}` : ""}</span>}
             </p>
+            {rating && (
+              <a href="#reviews" data-cursor="READ" className="mt-3 flex items-center gap-2.5">
+                <Stars value={rating.average} className="text-[13px]" />
+                <span className="label"><span className="u">{rating.average.toFixed(1)} · {rating.total} {rating.total === 1 ? "review" : "reviews"}</span></span>
+              </a>
+            )}
             <p className="mt-5 max-w-[42ch] text-[13px] leading-relaxed text-[var(--mute)]">{p.description}</p>
 
             <div className="mt-9 border-t pt-5">
@@ -117,6 +127,8 @@ export function ProductView({ product: p, related }: { product: ShopProduct; rel
           </div>
         </div>
       </div>
+
+      <ReviewsSection productId={p.id} rating={rating} reviews={reviews} access={access} />
 
       {related.length > 0 && (
         <section className="px-5 pt-32 md:px-8 md:pt-48">
