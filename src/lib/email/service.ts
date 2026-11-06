@@ -38,14 +38,14 @@ export async function productsLite(): Promise<ProductLite[]> {
 }
 
 /** Business address + store name from Settings (address falls back to the STORE_ADDRESS variable). */
-async function brandInfo() {
+export async function brandInfo() {
   const [address, store] = await Promise.all([getAddressLine(), getStoreSettings()])
   return { address, storeName: store.name }
 }
 
-const firstName = (n: string) => n.trim().split(/\s+/)[0] || "there"
+export const firstName = (n: string) => n.trim().split(/\s+/)[0] || "there"
 
-async function log(row: { resend_id?: string; campaign_id?: string; kind: string; to_email: string; status: string; error?: string }) {
+export async function log(row: { resend_id?: string; campaign_id?: string; kind: string; to_email: string; status: string; error?: string }) {
   try {
     await serviceClient().from("email_messages").insert(row)
   } catch {
@@ -60,7 +60,7 @@ function shipToLines(o: any, name: string): string[] {
 }
 
 /** Order + customer + line items straight from the database. */
-async function loadOrder(orderId: string) {
+export async function loadOrder(orderId: string) {
   const db = serviceClient()
   const { data: o } = await db.from("orders").select("*, order_items(*), customers(name, email)").eq("id", orderId).maybeSingle()
   if (!o) return null

@@ -8,7 +8,7 @@ import { Tracker } from "@/components/store/tracker"
 import { WelcomePopup } from "@/components/store/welcome-popup"
 import { getCatalog, getCategoryNames } from "@/lib/source"
 import { getWelcomeOffer } from "@/lib/offers"
-import { getPolicies, getStoreSettings } from "@/lib/settings"
+import { getAlertSettings, getPolicies, getStoreSettings } from "@/lib/settings"
 import { getAccount } from "@/lib/account"
 import { getReviewSummary } from "@/lib/reviews"
 import { getShippingZones } from "@/lib/shipping-source"
@@ -25,11 +25,11 @@ export const metadata: Metadata = {
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
   const products = await getCatalog()
   const categoryNames = await getCategoryNames(products)
-  const [store, policies, welcome, shipping, account, ratings] = await Promise.all([getStoreSettings(), getPolicies(), getWelcomeOffer(), getShippingZones(), getAccount(), getReviewSummary()])
+  const [store, policies, welcome, shipping, account, ratings, alerts] = await Promise.all([getStoreSettings(), getPolicies(), getWelcomeOffer(), getShippingZones(), getAccount(), getReviewSummary(), getAlertSettings()])
   const policyLinks = POLICY_META.filter((m) => policies[m.slug].trim()).map((m) => ({ slug: m.slug, title: m.title }))
   return (
     <div className="store min-h-dvh">
-      <CatalogProvider products={products} categoryNames={categoryNames} store={store} welcome={welcome} policyLinks={policyLinks} shipping={shipping} account={account} ratings={ratings}>
+      <CatalogProvider products={products} categoryNames={categoryNames} store={store} welcome={welcome} policyLinks={policyLinks} shipping={shipping} account={account} ratings={ratings} cartReminders={alerts.abandonedCart}>
       <CartProvider>
         <Preloader />
         <SmoothScroll />

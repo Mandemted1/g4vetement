@@ -27,11 +27,13 @@ interface Ctx {
   account: AccountInfo | null
   /** average rating and count per product id (published reviews only) */
   ratings: Record<string, Rating>
+  /** the owner has abandoned-cart reminders on: checkout says so and remembers the bag once an email is typed */
+  cartReminders: boolean
 }
 const C = createContext<Ctx | null>(null)
 
 /** Live product catalog for every client component in the storefront. */
-export function CatalogProvider({ products, categoryNames, store, welcome, policyLinks, shipping, account, ratings, children }: { products: Product[]; categoryNames: string[]; store: StoreSettings; welcome: WelcomeOffer | null; policyLinks: { slug: string; title: string }[]; shipping: ShippingZone[]; account: AccountInfo | null; ratings: Record<string, Rating>; children: React.ReactNode }) {
+export function CatalogProvider({ products, categoryNames, store, welcome, policyLinks, shipping, account, ratings, cartReminders, children }: { products: Product[]; categoryNames: string[]; store: StoreSettings; welcome: WelcomeOffer | null; policyLinks: { slug: string; title: string }[]; shipping: ShippingZone[]; account: AccountInfo | null; ratings: Record<string, Rating>; cartReminders: boolean; children: React.ReactNode }) {
   const value = useMemo(() => {
     const shop = toShop(products)
     // the admin-chosen order, but only categories that currently have a visible product
@@ -41,8 +43,8 @@ export function CatalogProvider({ products, categoryNames, store, welcome, polic
       const ps = shop.filter((p) => inSection(p, s.key))
       return { key: s.key, label: s.label, count: ps.length, categories: categories.filter((c) => ps.some((p) => p.category === c)) }
     }).filter((s) => s.count > 0)
-    return { shop, shopById: new Map(shop.map((p) => [p.id, p])), categories, sections: secs.length >= 2 ? secs : [], store, welcome, policyLinks, shipping, account, ratings }
-  }, [products, categoryNames, store, welcome, policyLinks, shipping, account, ratings])
+    return { shop, shopById: new Map(shop.map((p) => [p.id, p])), categories, sections: secs.length >= 2 ? secs : [], store, welcome, policyLinks, shipping, account, ratings, cartReminders }
+  }, [products, categoryNames, store, welcome, policyLinks, shipping, account, ratings, cartReminders])
   return <C.Provider value={value}>{children}</C.Provider>
 }
 

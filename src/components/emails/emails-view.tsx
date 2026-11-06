@@ -10,7 +10,7 @@ import type { MessageItem, TemplateItem, emailConfig } from "@/lib/email/admin-d
 import { dateLabel, timeLabel } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
-const KIND: Record<string, string> = { campaign: "Campaign", order_confirmation: "Order confirmation", order_shipped: "Order shipped", welcome: "Welcome", test: "Test" }
+const KIND: Record<string, string> = { campaign: "Campaign", order_confirmation: "Order confirmation", order_shipped: "Order shipped", welcome: "Welcome", abandoned_cart: "Cart reminder", new_order_alert: "New-order alert", low_stock_alert: "Low-stock alert", test: "Test" }
 
 export function EmailsView({ templates, messages, config, tablesMissing }: { templates: TemplateItem[]; messages: MessageItem[]; config: Awaited<ReturnType<typeof emailConfig>>; tablesMissing: boolean }) {
   const issues: string[] = []

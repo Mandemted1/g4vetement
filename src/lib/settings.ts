@@ -1,6 +1,7 @@
 import "server-only"
 import { serviceClient } from "@/lib/supabase/clients"
 import { isLive } from "@/lib/supabase/env"
+import { DEFAULT_ALERTS, type AlertSettings } from "./alerts"
 import { DEFAULT_LOGIN, DEFAULT_POLICIES, DEFAULT_STORE, type LoginSettings, type Policies, type StoreSettings } from "./settings-types"
 
 export type { LoginSettings, Policies, StoreSettings } from "./settings-types"
@@ -22,6 +23,7 @@ async function read<T extends object>(key: string, defaults: T): Promise<T> {
 export const getLoginSettings = () => read<LoginSettings>("login", DEFAULT_LOGIN)
 export const getStoreSettings = () => read<StoreSettings>("store", DEFAULT_STORE)
 export const getPolicies = () => read<Policies>("policies", DEFAULT_POLICIES)
+export const getAlertSettings = () => read<AlertSettings>("alerts", DEFAULT_ALERTS)
 
 /** The business address on one line (for email footers). Falls back to the STORE_ADDRESS environment variable. */
 export async function getAddressLine(): Promise<string> {

@@ -60,7 +60,7 @@ try {
   ok("the admin list can't be read or changed by a customer", (await rows(cust.db.from("admins").select("*"))) === 0 && !!(await cust.db.from("admins").insert({ user_id: cust.id })).error)
 
   // ---------- a customer can't see or change admin data ----------
-  for (const t of ["orders", "order_items", "customers", "discount_codes", "sales", "shipping_zones", "site_settings", "subscribers", "email_templates", "campaigns", "email_messages", "visits", "gift_cards", "gift_card_ledger"]) {
+  for (const t of ["orders", "order_items", "customers", "discount_codes", "sales", "shipping_zones", "site_settings", "subscribers", "email_templates", "campaigns", "email_messages", "visits", "gift_cards", "gift_card_ledger", "abandoned_carts", "cart_reminder_optouts"]) {
     const n = await rows(cust.db.from(t).select("*"))
     ok(`customer can't read ${t}`, n === 0, `${n} rows`)
   }

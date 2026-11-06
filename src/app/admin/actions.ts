@@ -13,6 +13,7 @@ import { isDepartment, type Department } from "@/lib/departments"
 import type { LoginSettings, Policies, StoreSettings } from "@/lib/settings-types"
 import { cleanPolicies, cleanStore } from "@/lib/settings-validate"
 import { cleanTracking, type Tracking } from "@/lib/tracking"
+import { cleanAlerts, type AlertSettings } from "@/lib/alerts"
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string }
 const DEMO = { ok: false as const, error: "Demo mode: connect Supabase (see .env.example) to save changes." }
@@ -221,6 +222,19 @@ export async function saveStoreSettings(v: StoreSettings): Promise<Result<{ save
   const c = cleanStore(v)
   if (!c.ok) return c
   const { error } = await db.from("site_settings").upsert({ key: "store", value: c.value, updated_at: new Date().toISOString() })
+  if (error) return msg(error)
+  revalidatePath("/", "layout")
+  return { ok: true, saved: c.value }
+}
+
+/** Which notifications are on, and where alerts go. */
+export async function saveAlertSettings(v: AlertSettings): Promise<Result<{ saved: AlertSettings }>> {
+  if (!isLive) return DEMO
+  const db = await admin()
+  if (!db) return { ok: false, error: "Please sign in again." }
+  const c = cleanAlerts(v)
+  if (!c.ok) return c
+  const { error } = await db.from("site_settings").upsert({ key: "alerts", value: c.value, updated_at: new Date().toISOString() })
   if (error) return msg(error)
   revalidatePath("/", "layout")
   return { ok: true, saved: c.value }

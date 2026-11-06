@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache"
 import { after } from "next/server"
+import { captureCart, markCartRecovered } from "@/lib/email/abandoned"
+import { notifyStoreOwner } from "@/lib/email/owner-alerts"
 import { sendOrderEmail, sendWelcomeEmail } from "@/lib/email/service"
 import { getCatalog } from "@/lib/source"
 import { DEFAULT_ZONE, quoteShipping } from "@/lib/shipping"
@@ -155,6 +157,9 @@ export async function placeOrder(input: CheckoutInput): Promise<CheckoutResult> 
     const r = Array.isArray(data) ? data[0] : data
     revalidatePath("/", "layout")
     after(() => sendOrderEmail(r.order_id, "order_confirmation"))
+    // tell the owner (new order, low stock) and stop treating this shopper's bag as abandoned; neither can affect the order
+    after(() => notifyStoreOwner(r.order_id))
+    after(() => markCartRecovered(input.email))
     return { ok: true, orderId: r.order_id, total: r.order_total, discount: r.applied_discount ?? 0, saleDiscount: r.sale_discount ?? 0, shipping: r.shipping ?? 0, subtotal: r.subtotal ?? 0, estimate: r.ship_estimate ?? "", giftAmount: r.gift_amount ?? 0, amountDue: r.amount_due ?? r.order_total }
   }
 
@@ -164,6 +169,12 @@ export async function placeOrder(input: CheckoutInput): Promise<CheckoutResult> 
   if (code && q.quote.codeError) return { ok: false, error: q.quote.codeError }
   if (q.quote.shipError) return { ok: false, error: q.quote.shipError }
   return { ok: true, orderId: `G4-DEMO-${Math.floor(1000 + Math.random() * 8999)}`, total: q.quote.total, discount: q.quote.discount, saleDiscount: 0, shipping: q.quote.shipping, subtotal: q.quote.subtotal, estimate: q.quote.shipEstimate, giftAmount: 0, amountDue: q.quote.total }
+}
+
+/** Remembers a shopper's bag after they've typed their email at checkout (only when the owner has reminders switched on). */
+export async function saveCartSnapshot(input: { email: string; country?: string; items: BagLine[] }): Promise<{ ok: boolean }> {
+  const r = await captureCart({ email: input.email, country: input.country, items: input.items })
+  return { ok: r.ok }
 }
 
 export async function subscribe(email: string, source = "footer"): Promise<{ ok: boolean; error?: string }> {

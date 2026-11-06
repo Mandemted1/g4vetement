@@ -8,6 +8,7 @@ import { guessCountry } from "@/lib/countries"
 import { quoteShipping, shippableCountries } from "@/lib/shipping"
 import { placeOrder, quoteOrder, type QuoteResult } from "@/app/(store)/actions"
 import { saveAddress } from "@/app/(store)/account/actions"
+import { saveCartSnapshot } from "@/app/(store)/actions"
 import { cn } from "@/lib/utils"
 import { useCatalog } from "./catalog"
 import { OrderSuccess, type SuccessData } from "./order-success"
@@ -38,6 +39,8 @@ interface CartCtx {
   setOpen: (v: boolean) => void
   add: (l: Omit<CartLine, "key" | "qty">, from?: DOMRect | null) => void
   setQty: (key: string, qty: number) => void
+  /** replace the bag with these lines (when someone returns from a reminder email) and show it */
+  restore: (lines: CartLine[]) => void
   clear: () => void
   bumped: number
   showSuccess: (d: SuccessData) => void
@@ -61,13 +64,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [bumped, setBumped] = useState(0)
   const [success, setSuccess] = useState<SuccessData | null>(null)
   const loaded = useRef(false)
+  // set when a bag was restored from a reminder email: the saved bag in this browser must not overwrite it
+  const restored = useRef(false)
   const fid = useRef(0)
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE)
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (raw) setLines((JSON.parse(raw) as CartLine[]).filter((l) => shopById.has(l.productId)))
+      if (raw && !restored.current) setLines((JSON.parse(raw) as CartLine[]).filter((l) => shopById.has(l.productId)))
     } catch {}
     loaded.current = true
   }, [shopById])
@@ -110,10 +115,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     )
   }, [shopById])
   const clear = useCallback(() => setLines([]), [])
+  const restore = useCallback((next: CartLine[]) => {
+    restored.current = true
+    setLines(next.filter((l) => shopById.has(l.productId)))
+    setOpen(true)
+  }, [shopById])
 
   const count = lines.reduce((s, l) => s + l.qty, 0)
   const subtotal = lines.reduce((s, l) => s + l.qty * unitPrice(shopById.get(l.productId) ?? { price: 0 }), 0)
-  const value = useMemo(() => ({ lines, count, subtotal, open, setOpen, add, setQty, clear, bumped, showSuccess: setSuccess }), [lines, count, subtotal, open, add, setQty, clear, bumped])
+  const value = useMemo(() => ({ lines, count, subtotal, open, setOpen, add, setQty, restore, clear, bumped, showSuccess: setSuccess }), [lines, count, subtotal, open, add, setQty, restore, clear, bumped])
 
   return (
     <Ctx.Provider value={value}>
@@ -158,7 +168,7 @@ function FlightLayer({ flights, done }: { flights: Flight[]; done: (id: number) 
 
 function CartDrawer() {
   const { lines, open, setOpen, setQty, clear, count, showSuccess } = useCart()
-  const { shopById, shipping, account } = useCatalog()
+  const { shopById, shipping, account, cartReminders } = useCatalog()
   const [step, setStep] = useState<"bag" | "details">("bag")
   // signed in: start from the saved name, email and address
   const blankForm = () => ({ name: account?.name ?? "", email: account?.email ?? "", address: account?.address?.address ?? "", city: account?.address?.city ?? "", state: account?.address?.state ?? "", postcode: account?.address?.postcode ?? "" })
@@ -220,6 +230,18 @@ function CartDrawer() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, open])
+
+  // With reminders on: once a plausible email is typed at checkout, remember the bag (after a short pause) so one reminder can be sent
+  const typedEmail = step === "details" ? form.email.trim() : ""
+  const snapshotKey = JSON.stringify({ e: typedEmail, l: lines.map((l) => [l.productId, l.size, l.color, l.qty]), k: country })
+  useEffect(() => {
+    if (!cartReminders || !open || lines.length === 0 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(typedEmail)) return
+    const t = window.setTimeout(() => {
+      void saveCartSnapshot({ email: typedEmail, country: country || undefined, items: lines.map((l) => ({ productId: l.productId, size: l.size, color: l.color, qty: l.qty })) })
+    }, 2500)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshotKey, cartReminders, open])
 
   const loading = lines.length > 0 && result?.key !== key
   const q = result?.r.ok ? result.r.quote : null
@@ -460,6 +482,7 @@ function CartDrawer() {
                         {countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
                       </select>
                     </div>
+                    {cartReminders && <p className="label !mt-4 leading-relaxed text-[var(--mute)]">If you leave without ordering, we may send you one reminder email about your bag. You can stop it with one click.</p>}
                     {account && (
                       <label className="label !mt-6 flex cursor-pointer items-center gap-3">
                         <input type="checkbox" checked={saveAddr} onChange={(e) => setSaveAddr(e.target.checked)} className="size-4 accent-[var(--ink)]" />

@@ -3,6 +3,7 @@ import { defaultTheme, uid, type EmailDoc } from "./types"
 export const TEMPLATE_META = [
   { key: "order_confirmation", name: "Order confirmation", description: "Sent to the customer right after they place an order." },
   { key: "order_shipped", name: "Order shipped", description: "Sent when you mark an order as shipped in the admin." },
+  { key: "abandoned_cart", name: "Abandoned cart reminder", description: "Sent once if someone types their email at checkout, leaves, and doesn't order. Only when switched on in Settings." },
   { key: "welcome", name: "Welcome + discount code", description: "Sent when someone joins through the welcome popup or newsletter box." },
 ] as const
 
@@ -20,6 +21,7 @@ const b = {
   button: (label: string, url: string) => ({ id: uid(), type: "button" as const, label, url, align: "left" as const, style: "solid" as const }),
   order: () => ({ id: uid(), type: "order" as const }),
   tracking: () => ({ id: uid(), type: "tracking" as const }),
+  cart: () => ({ id: uid(), type: "cart" as const }),
   spacer: (height = 16) => ({ id: uid(), type: "spacer" as const, height }),
   divider: () => ({ id: uid(), type: "divider" as const }),
 }
@@ -51,6 +53,21 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, DefaultTemplate> = {
         b.spacer(8),
         b.order(),
         b.button("Keep browsing", "{{store_url}}/shop"),
+      ],
+    },
+  },
+  abandoned_cart: {
+    subject: "You left something in your bag",
+    preheader: "It's saved for you.",
+    doc: {
+      theme: defaultTheme,
+      blocks: [
+        b.heading("Still thinking it over?"),
+        b.text("Hi {{first_name}}, you left these in your bag. We've saved them for you."),
+        b.spacer(8),
+        b.cart(),
+        b.button("Return to your bag", "{{bag_url}}"),
+        b.text("If you've already ordered, ignore this. We'll only remind you once."),
       ],
     },
   },
